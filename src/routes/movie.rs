@@ -6,11 +6,12 @@ use actix_web::{
 use serde::Deserialize;
 
 use crate::{
+    error::AppError,
     models::movie::{Movie, MovieRequest},
     services::db::Database,
 };
 
-#[post("/api/v1/movies/new")]
+#[post("/new")]
 pub async fn create_movie(db: Data<Database>, request: Json<MovieRequest>) -> HttpResponse {
     match db
         .create_movie(
@@ -42,8 +43,11 @@ pub struct Params {
     size: Option<u32>,
 }
 
-#[get("/api/v1/movies/findAll")]
-pub async fn get_movies(db: Data<Database>, params: Query<Params>) -> HttpResponse {
+#[get("/findAll")]
+pub async fn get_movies(
+    db: Data<Database>,
+    params: Query<Params>,
+) -> Result<HttpResponse, AppError> {
     match db
         .find_all_movies(
             params.title.clone(),
@@ -52,8 +56,32 @@ pub async fn get_movies(db: Data<Database>, params: Query<Params>) -> HttpRespon
         )
         .await
     {
-        Ok(movies) => HttpResponse::Ok().json(movies),
-        Err(err) => HttpResponse::InternalServerError().json(err.to_string()),
+        Ok(movies) => Ok(HttpResponse::Ok().json(movies)),
+        Err(err) => Err(err),
+    }
+}
+
+#[get("/findById/{id}")]
+pub async fn get_movie_by_id(
+    db: Data<Database>,
+    path: Path<String>,
+) -> Result<HttpResponse, AppError> {
+    let id = path.into_inner();
+    match db.find_movie_by_id(id.as_str()).await {
+        Ok(movie) => Ok(HttpResponse::Ok().json(movie)),
+        Err(err) => Err(err),
+    }
+}
+
+#[get("/findByImdbId/{id}")]
+pub async fn get_movie_by_imdb_id(
+    db: Data<Database>,
+    path: Path<String>,
+) -> Result<HttpResponse, AppError> {
+    let imdb_id = path.into_inner();
+    match db.find_movie_by_imdb_id(imdb_id.as_str()).await {
+        Ok(movie) => Ok(HttpResponse::Ok().json(movie)),
+        Err(err) => Err(err),
     }
 }
 

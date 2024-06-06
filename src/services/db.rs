@@ -1,21 +1,24 @@
-use std::{any::Any, collections::HashMap, env, fmt::format, sync::Arc};
+use std::{env, str::FromStr};
 
-use crate::models::{
-    movie::{Movie, MovieRequest},
-    review::Review,
-    series::Series,
+use crate::{
+    error::AppError,
+    models::{
+        movie::{Movie, MovieResponse},
+        review::Review,
+        series::Series,
+    },
 };
 use dotenv::dotenv;
-use futures_util::{stream::Skip, TryStreamExt};
-use log::info;
+use futures_util::{StreamExt, TryStreamExt};
+use log::{error, info, warn};
 use mongodb::{
-    bson::{doc, Regex},
+    bson::{doc, oid::ObjectId, Regex},
     error::Error,
     options::{CountOptions, FindOptions},
     results::{InsertOneResult, UpdateResult},
     Client, Collection,
 };
-use serde_json::{json, Map, Number, Value};
+use serde_json::{Map, Value};
 
 pub struct Database {
     movies: Collection<Movie>,
@@ -86,8 +89,8 @@ impl Database {
         title: Option<String>,
         page: Option<u32>,
         size: Option<u32>,
-    ) -> Result<Map<String, Value>, Error> {
-        info!("/GET movies findAll executed");
+    ) -> Result<Map<String, Value>, AppError> {
+        info!("GET movies /findAll executed");
         let mut result_map: Map<String, Value> = Map::new();
 
         let page_num = match page {
@@ -141,11 +144,17 @@ impl Database {
             .ok()
             .expect("Error finding all movies");
 
-        let movie_list: Vec<Movie> = cursor
+        let movie_list: Vec<MovieResponse> = cursor
+            .map(|movie| MovieResponse::try_from(movie.unwrap()))
             .try_collect()
             .await
             .ok()
             .expect("Error collecting movies");
+
+        if movie_list.is_empty() {
+            warn!("Warn in movies /findAll [{}]", AppError::Empty.to_string());
+            return Err(AppError::Empty);
+        }
 
         result_map.insert(
             "movies".to_string(),
@@ -165,5 +174,64 @@ impl Database {
         );
 
         Ok(result_map)
+    }
+
+    pub async fn find_movie_by_id(&self, id: &str) -> Result<Movie, AppError> {
+        info!("GET movies /findById with id: '{}' executed", id);
+        let obj_id = ObjectId::from_str(id)?;
+        let movie: Movie = match self.movies.find_one(doc! {"_id": obj_id}, None).await {
+            Ok(Some(movie)) => movie,
+            Ok(None) => {
+                warn!(
+                    "Warn in movies /findById with id: '{}' [{}]",
+                    id,
+                    AppError::NotFound.to_string()
+                );
+                return Err(AppError::NotFound);
+            }
+            Err(_) => {
+                error!(
+                    "Error in movies /findById with id: '{}' [{}]",
+                    id,
+                    AppError::InternalServerError.to_string()
+                );
+                return Err(AppError::InternalServerError);
+            }
+        };
+        Ok(movie)
+    }
+
+    pub async fn find_movie_by_imdb_id(&self, imdb_id: &str) -> Result<Movie, AppError> {
+        info!("GET movies /findByImdbId with id: '{}' executed", imdb_id);
+        let re = regex::Regex::new(r"^tt\d+$").unwrap();
+        if !re.is_match(imdb_id) {
+            error!(
+                "Error in movies /findByImdbId with imdbId: '{}' [{}]",
+                imdb_id,
+                AppError::WrongImdbId.to_string()
+            );
+            return Err(AppError::WrongImdbId);
+        }
+
+        let movie: Movie = match self.movies.find_one(doc! {"imdbId": imdb_id}, None).await {
+            Ok(Some(movie)) => movie,
+            Ok(None) => {
+                warn!(
+                    "Warn in movies /findByImdbId with imdbId: '{}' [{}]",
+                    imdb_id,
+                    AppError::NotFound.to_string()
+                );
+                return Err(AppError::NotFound);
+            }
+            Err(_) => {
+                error!(
+                    "Error in movies /findByImdbId with imdbId: '{}' [{}]",
+                    imdb_id,
+                    AppError::InternalServerError.to_string()
+                );
+                return Err(AppError::InternalServerError);
+            }
+        };
+        Ok(movie)
     }
 }

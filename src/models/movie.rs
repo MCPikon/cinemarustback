@@ -41,6 +41,17 @@ pub struct MovieRequest {
     pub backdrop: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct MovieResponse {
+    #[serde(rename = "imdbId")]
+    pub imdb_id: String,
+    pub title: String,
+    pub duration: String,
+    #[serde(rename = "releaseDate")]
+    pub release_date: String,
+    pub poster: String,
+}
+
 impl TryFrom<MovieRequest> for Movie {
     type Error = Box<dyn Error>;
 
@@ -58,6 +69,20 @@ impl TryFrom<MovieRequest> for Movie {
             poster: item.poster,
             backdrop: item.backdrop,
             review_ids: Vec::new(),
+        })
+    }
+}
+
+impl TryFrom<Movie> for MovieResponse {
+    type Error = Box<dyn Error>;
+
+    fn try_from(item: Movie) -> Result<Self, Self::Error> {
+        Ok(Self {
+            imdb_id: item.imdb_id,
+            title: item.title,
+            duration: item.duration,
+            release_date: item.release_date,
+            poster: item.poster,
         })
     }
 }

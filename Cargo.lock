@@ -483,11 +483,13 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "chrono",
+ "derive_more",
  "dotenv",
  "env_logger",
  "futures-util",
  "log",
  "mongodb",
+ "regex",
  "serde",
  "serde_json",
 ]
