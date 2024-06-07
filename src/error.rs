@@ -19,6 +19,8 @@ pub enum AppError {
     NotExists,
     #[display(fmt = "The imdbId passed is already in use by another entity.")]
     ImdbIdInUse,
+    #[display(fmt = "The field passed not exists in entity or is not allowed.")]
+    FieldNotAllowed,
     #[display(fmt = "An internal server error ocurred.")]
     InternalServerError,
 }
@@ -40,6 +42,7 @@ impl ResponseError for AppError {
             AppError::AlreadyExists => StatusCode::BAD_REQUEST,
             AppError::NotExists => StatusCode::BAD_REQUEST,
             AppError::ImdbIdInUse => StatusCode::BAD_REQUEST,
+            AppError::FieldNotAllowed => StatusCode::BAD_REQUEST,
             AppError::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

@@ -321,6 +321,15 @@ impl Database {
                 return Err(AppError::InternalServerError);
             }
         };
+        let re = regex::Regex::new(r"^tt\d+$").unwrap();
+        if !re.is_match(&movie.imdb_id) {
+            error!(
+                "Error in movies /update with id: '{}' [{}]",
+                id,
+                AppError::WrongImdbId.to_string()
+            );
+            return Err(AppError::WrongImdbId);
+        }
         let exists_imdb_id_movie: bool = self.movie_exists_by_imdb_id(&movie.imdb_id).await?;
         let exists_imdb_id_series: bool = self.series_exists_by_imdb_id(&movie.imdb_id).await?;
         if (exists_imdb_id_movie || exists_imdb_id_series) && movie_founded.imdb_id != movie.imdb_id
@@ -353,6 +362,90 @@ impl Database {
             .await
             .ok()
             .expect(format!("Error updating movie with id: '{}'", id).as_str());
+        Ok(result)
+    }
+
+    pub async fn patch_movie(
+        &self,
+        id: &str,
+        field: &str,
+        val: &str,
+    ) -> Result<UpdateResult, AppError> {
+        info!("PATCH movies /patch with id: '{}' executed", id);
+        let fields_vec: Vec<&str> = vec![
+            "imdbId",
+            "title",
+            "overview",
+            "duration",
+            "director",
+            "releaseDate",
+            "trailerLink",
+            "genres",
+            "poster",
+            "backdrop",
+        ];
+        let obj_id = ObjectId::from_str(id)?;
+        if !fields_vec.contains(&field) {
+            warn!(
+                "Warn in movies /patch with id: '{}' [{}]",
+                obj_id,
+                AppError::FieldNotAllowed.to_string()
+            );
+            return Err(AppError::FieldNotAllowed);
+        }
+        let movie_founded: Movie = match self.movies.find_one(doc! { "_id": obj_id }, None).await {
+            Ok(Some(movie)) => movie,
+            Ok(None) => {
+                warn!(
+                    "Warn in movies /patch with id: '{}' [{}]",
+                    obj_id,
+                    AppError::NotExists.to_string()
+                );
+                return Err(AppError::NotExists);
+            }
+            Err(_) => {
+                error!(
+                    "Error in movies /patch with id: '{}' [{}]",
+                    obj_id,
+                    AppError::InternalServerError.to_string()
+                );
+                return Err(AppError::InternalServerError);
+            }
+        };
+        if field == "imdbId" {
+            let re = regex::Regex::new(r"^tt\d+$").unwrap();
+            if !re.is_match(val) {
+                error!(
+                    "Error in movies /patch with id: '{}' [{}]",
+                    id,
+                    AppError::WrongImdbId.to_string()
+                );
+                return Err(AppError::WrongImdbId);
+            }
+            let exists_imdb_id_movie: bool = self.movie_exists_by_imdb_id(val).await?;
+            let exists_imdb_id_series: bool = self.series_exists_by_imdb_id(val).await?;
+            if (exists_imdb_id_movie || exists_imdb_id_series) && movie_founded.imdb_id != val {
+                error!(
+                    "Error in movies /update with id: '{}' [{}]",
+                    obj_id,
+                    AppError::ImdbIdInUse.to_string()
+                );
+                return Err(AppError::ImdbIdInUse);
+            }
+        }
+        let result = self
+            .movies
+            .update_one(
+                doc! { "_id": obj_id },
+                doc! {
+                "$set": doc! {
+                    field: val
+                }},
+                None,
+            )
+            .await
+            .ok()
+            .expect(format!("Error patching movie with id: '{}'", id).as_str());
         Ok(result)
     }
 }

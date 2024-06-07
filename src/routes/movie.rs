@@ -1,5 +1,5 @@
 use actix_web::{
-    delete, get, post, put,
+    delete, get, patch, post, put,
     web::{Data, Json, Path, Query},
     HttpResponse,
 };
@@ -109,6 +109,33 @@ pub async fn update_movie_by_id(
     let id = path.into_inner();
 
     match db.update_movie(id.as_str(), movie.0).await {
+        Ok(movies) => Ok(HttpResponse::Ok().json(movies)),
+        Err(err) => Err(err),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PatchParams {
+    field: String,
+    value: String,
+}
+
+#[patch("/patch/{id}")]
+pub async fn patch_movie_by_id(
+    db: Data<Database>,
+    path: Path<String>,
+    json_patch: Json<PatchParams>,
+) -> Result<HttpResponse, AppError> {
+    let id = path.into_inner();
+
+    match db
+        .patch_movie(
+            id.as_str(),
+            json_patch.0.field.as_str(),
+            json_patch.0.value.as_str(),
+        )
+        .await
+    {
         Ok(movies) => Ok(HttpResponse::Ok().json(movies)),
         Err(err) => Err(err),
     }
