@@ -22,11 +22,13 @@ Este proyecto realiza un CRUD (Crear, Obtener, Modificar y Eliminar) de Películ
 * Actix Web 4.6.0
 * _**Dependencias (Crates):**_
     * chrono (0.4.38)
+    * derive_more (0.99.17)
     * dotenv (0.15.0)
     * env_logger (0.11.3)
     * futures-util (0.3.30)
     * log (0.4.21)
     * mongodb (2.8.2)
+    * regex (1.10.4)
     * serde (1.0.203)
     * serde_json (1.0.117)
 
