@@ -1,5 +1,5 @@
 use actix_web::{
-    get, post, put,
+    delete, get, post, put,
     web::{Data, Json, Path, Query},
     HttpResponse,
 };
@@ -10,31 +10,6 @@ use crate::{
     models::movie::{Movie, MovieRequest},
     services::db::Database,
 };
-
-#[post("/new")]
-pub async fn create_movie(db: Data<Database>, request: Json<MovieRequest>) -> HttpResponse {
-    match db
-        .create_movie(
-            Movie::try_from(MovieRequest {
-                imdb_id: request.imdb_id.clone(),
-                title: request.title.clone(),
-                overview: request.overview.clone(),
-                duration: request.duration.clone(),
-                director: request.director.clone(),
-                release_date: request.release_date.clone(),
-                trailer_link: request.trailer_link.clone(),
-                genres: request.genres.clone(),
-                poster: request.poster.clone(),
-                backdrop: request.backdrop.clone(),
-            })
-            .expect("Error converting request to Movie"),
-        )
-        .await
-    {
-        Ok(movie) => HttpResponse::Ok().json(movie),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
-    }
-}
 
 #[derive(Debug, Deserialize)]
 pub struct Params {
@@ -56,7 +31,7 @@ pub async fn get_movies(
         )
         .await
     {
-        Ok(movies) => Ok(HttpResponse::Ok().json(movies)),
+        Ok(res) => Ok(HttpResponse::Ok().json(res)),
         Err(err) => Err(err),
     }
 }
@@ -85,13 +60,56 @@ pub async fn get_movie_by_imdb_id(
     }
 }
 
-// TODO: terminar esto
-// #[put("/api/v1/movies/update/{id}")]
-// pub async fn update_movie(db: Data<Database>, path: Path<(String,)>) -> HttpResponse {
-//     let id = path.into_inner().0;
+#[post("/new")]
+pub async fn create_movie(
+    db: Data<Database>,
+    request: Json<MovieRequest>,
+) -> Result<HttpResponse, AppError> {
+    match db
+        .create_movie(
+            Movie::try_from(MovieRequest {
+                imdb_id: request.imdb_id.clone(),
+                title: request.title.clone(),
+                overview: request.overview.clone(),
+                duration: request.duration.clone(),
+                director: request.director.clone(),
+                release_date: request.release_date.clone(),
+                trailer_link: request.trailer_link.clone(),
+                genres: request.genres.clone(),
+                poster: request.poster.clone(),
+                backdrop: request.backdrop.clone(),
+            })
+            .expect("Error converting request to Movie"),
+        )
+        .await
+    {
+        Ok(movie) => Ok(HttpResponse::Created().json(movie)),
+        Err(err) => Err(err),
+    }
+}
 
-//     match db.update_movie(id.as_str()).await {
-//         Ok(movies) => HttpResponse::Ok().json(movies),
-//         Err(err) => HttpResponse::InternalServerError().json(err.to_string()),
-//     }
-// }
+#[delete("/delete/{id}")]
+pub async fn delete_movie_by_id(
+    db: Data<Database>,
+    path: Path<String>,
+) -> Result<HttpResponse, AppError> {
+    let id = path.into_inner();
+    match db.delete_movie(id.as_str()).await {
+        Ok(res) => Ok(HttpResponse::Ok().json(res)),
+        Err(err) => Err(err),
+    }
+}
+
+#[put("/update/{id}")]
+pub async fn update_movie_by_id(
+    db: Data<Database>,
+    path: Path<String>,
+    movie: Json<MovieRequest>,
+) -> Result<HttpResponse, AppError> {
+    let id = path.into_inner();
+
+    match db.update_movie(id.as_str(), movie.0).await {
+        Ok(movies) => Ok(HttpResponse::Ok().json(movies)),
+        Err(err) => Err(err),
+    }
+}

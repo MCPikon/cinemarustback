@@ -11,7 +11,10 @@ use actix_web::{
 };
 use env_logger::Env;
 use log::info;
-use routes::movie::{get_movie_by_id, get_movie_by_imdb_id, get_movies};
+use routes::movie::{
+    create_movie, delete_movie_by_id, get_movie_by_id, get_movie_by_imdb_id, get_movies,
+    update_movie_by_id,
+};
 use serde_json::Map;
 use services::db::Database;
 
@@ -55,7 +58,10 @@ async fn main() -> std::io::Result<()> {
                         web::scope("/movies")
                             .service(get_movies)
                             .service(get_movie_by_id)
-                            .service(get_movie_by_imdb_id),
+                            .service(get_movie_by_imdb_id)
+                            .service(create_movie)
+                            .service(delete_movie_by_id)
+                            .service(update_movie_by_id),
                     ),
             )
     })

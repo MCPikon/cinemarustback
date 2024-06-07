@@ -13,6 +13,12 @@ pub enum AppError {
     CannotParseObjId,
     #[display(fmt = "ImbdId malformed (imbdId not valid)")]
     WrongImdbId,
+    #[display(fmt = "An entity with that id already exists.")]
+    AlreadyExists,
+    #[display(fmt = "There is no entity with that id.")]
+    NotExists,
+    #[display(fmt = "The imdbId passed is already in use by another entity.")]
+    ImdbIdInUse,
     #[display(fmt = "An internal server error ocurred.")]
     InternalServerError,
 }
@@ -31,6 +37,9 @@ impl ResponseError for AppError {
             AppError::NotFound => StatusCode::NOT_FOUND,
             AppError::CannotParseObjId => StatusCode::BAD_REQUEST,
             AppError::WrongImdbId => StatusCode::BAD_REQUEST,
+            AppError::AlreadyExists => StatusCode::BAD_REQUEST,
+            AppError::NotExists => StatusCode::BAD_REQUEST,
+            AppError::ImdbIdInUse => StatusCode::BAD_REQUEST,
             AppError::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

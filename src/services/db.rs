@@ -3,7 +3,7 @@ use std::{env, str::FromStr};
 use crate::{
     error::AppError,
     models::{
-        movie::{Movie, MovieResponse},
+        movie::{Movie, MovieRequest, MovieResponse},
         review::Review,
         series::Series,
     },
@@ -13,7 +13,6 @@ use futures_util::{StreamExt, TryStreamExt};
 use log::{error, info, warn};
 use mongodb::{
     bson::{doc, oid::ObjectId, Regex},
-    error::Error,
     options::{CountOptions, FindOptions},
     results::{InsertOneResult, UpdateResult},
     Client, Collection,
@@ -35,7 +34,7 @@ impl Database {
         };
 
         let client = Client::with_uri_str(uri).await.unwrap();
-        let db = client.database("cinema-web-db");
+        let db = client.database("cinema-rust-db");
 
         let movies: Collection<Movie> = db.collection("movies");
         let series: Collection<Series> = db.collection("series");
@@ -46,42 +45,6 @@ impl Database {
             series,
             reviews,
         }
-    }
-
-    pub async fn create_movie(&self, movie: Movie) -> Result<InsertOneResult, Error> {
-        let result = self
-            .movies
-            .insert_one(&movie, None)
-            .await
-            .ok()
-            .expect(format!("Error creating movie with imdbId: '{}'", movie.imdb_id).as_str());
-        Ok(result)
-    }
-
-    pub async fn update_movie(&self, movie: Movie) -> Result<UpdateResult, Error> {
-        let result = self
-            .movies
-            .update_one(
-                doc! { "_id": movie._id },
-                doc! {
-                "$set": doc! {
-                    "imdbId": &movie.imdb_id,
-                    "title": movie.title,
-                    "overview": movie.overview,
-                    "duration": movie.duration,
-                    "releaseDate": movie.release_date,
-                    "trailerLink": movie.trailer_link,
-                    "genres": movie.genres,
-                    "poster": movie.poster,
-                    "backdrop": movie.backdrop,
-                    "reviewIds": movie.review_ids
-                }},
-                None,
-            )
-            .await
-            .ok()
-            .expect(format!("Error updating movie with imdbId: '{}'", movie.imdb_id).as_str());
-        Ok(result)
     }
 
     pub async fn find_all_movies(
@@ -233,5 +196,163 @@ impl Database {
             }
         };
         Ok(movie)
+    }
+
+    pub async fn create_movie(&self, movie: Movie) -> Result<InsertOneResult, AppError> {
+        info!("POST movies /new executed");
+        match self
+            .movies
+            .find_one(doc! {"imdbId": movie.imdb_id.clone()}, None)
+            .await
+        {
+            Ok(None) => {}
+            Ok(Some(_)) => {
+                warn!(
+                    "Warn in movies /new [{}]",
+                    AppError::AlreadyExists.to_string()
+                );
+                return Err(AppError::AlreadyExists);
+            }
+            Err(_) => {
+                error!(
+                    "Error in movies /new [{}]",
+                    AppError::InternalServerError.to_string()
+                );
+                return Err(AppError::InternalServerError);
+            }
+        };
+        let result = self
+            .movies
+            .insert_one(&movie, None)
+            .await
+            .ok()
+            .expect(format!("Error creating movie with imdbId: '{}'", movie.imdb_id).as_str());
+        Ok(result)
+    }
+
+    pub async fn delete_movie(&self, id: &str) -> Result<Map<String, Value>, AppError> {
+        info!("DELETE movies /delete with id: '{}' executed", id);
+        let obj_id = ObjectId::from_str(id)?;
+        let del_result = match self.movies.delete_one(doc! {"_id": obj_id}, None).await {
+            Ok(res) => res,
+            Err(_) => {
+                error!(
+                    "Error in movies /delete with id: '{}' [{}]",
+                    obj_id,
+                    AppError::InternalServerError.to_string()
+                );
+                return Err(AppError::InternalServerError);
+            }
+        };
+        let mut map_result: Map<String, Value> = Map::new();
+        if del_result.deleted_count > 0 {
+            map_result.insert(
+                "message".to_string(),
+                Value::String(
+                    format!("Movie with id: '{}' was successfully deleted", id).to_string(),
+                ),
+            );
+        } else {
+            warn!(
+                "Warn in movies /delete with id: '{}' [{}]",
+                obj_id,
+                AppError::NotExists.to_string()
+            );
+            return Err(AppError::NotExists);
+        }
+        Ok(map_result)
+    }
+
+    pub async fn movie_exists_by_imdb_id(&self, imdb_id: &str) -> Result<bool, AppError> {
+        let exists: bool = match self.movies.find_one(doc! { "imdbId": imdb_id }, None).await {
+            Ok(Some(_)) => true,
+            Ok(None) => false,
+            Err(_) => {
+                error!(
+                    "Error checking if movie exists with imdbId: '{}' [{}]",
+                    imdb_id,
+                    AppError::InternalServerError.to_string()
+                );
+                return Err(AppError::InternalServerError);
+            }
+        };
+        Ok(exists)
+    }
+
+    pub async fn series_exists_by_imdb_id(&self, imdb_id: &str) -> Result<bool, AppError> {
+        let exists: bool = match self.series.find_one(doc! { "imdbId": imdb_id }, None).await {
+            Ok(Some(_)) => true,
+            Ok(None) => false,
+            Err(_) => {
+                error!(
+                    "Error checking if series exists with imdbId: '{}' [{}]",
+                    imdb_id,
+                    AppError::InternalServerError.to_string()
+                );
+                return Err(AppError::InternalServerError);
+            }
+        };
+        Ok(exists)
+    }
+
+    pub async fn update_movie(
+        &self,
+        id: &str,
+        movie: MovieRequest,
+    ) -> Result<UpdateResult, AppError> {
+        info!("UPDATE movies /update with id: '{}' executed", id);
+        let obj_id = ObjectId::from_str(id)?;
+        let movie_founded: Movie = match self.movies.find_one(doc! { "_id": obj_id }, None).await {
+            Ok(Some(movie)) => movie,
+            Ok(None) => {
+                warn!(
+                    "Warn in movies /update with id: '{}' [{}]",
+                    obj_id,
+                    AppError::NotExists.to_string()
+                );
+                return Err(AppError::NotExists);
+            }
+            Err(_) => {
+                error!(
+                    "Error in movies /update with id: '{}' [{}]",
+                    obj_id,
+                    AppError::InternalServerError.to_string()
+                );
+                return Err(AppError::InternalServerError);
+            }
+        };
+        let exists_imdb_id_movie: bool = self.movie_exists_by_imdb_id(&movie.imdb_id).await?;
+        let exists_imdb_id_series: bool = self.series_exists_by_imdb_id(&movie.imdb_id).await?;
+        if (exists_imdb_id_movie || exists_imdb_id_series) && movie_founded.imdb_id != movie.imdb_id
+        {
+            error!(
+                "Error in movies /update with id: '{}' [{}]",
+                obj_id,
+                AppError::ImdbIdInUse.to_string()
+            );
+            return Err(AppError::ImdbIdInUse);
+        }
+        let result = self
+            .movies
+            .update_one(
+                doc! { "_id": obj_id },
+                doc! {
+                "$set": doc! {
+                    "imdbId": movie.imdb_id,
+                    "title": movie.title,
+                    "overview": movie.overview,
+                    "duration": movie.duration,
+                    "releaseDate": movie.release_date,
+                    "trailerLink": movie.trailer_link,
+                    "genres": movie.genres,
+                    "poster": movie.poster,
+                    "backdrop": movie.backdrop
+                }},
+                None,
+            )
+            .await
+            .ok()
+            .expect(format!("Error updating movie with id: '{}'", id).as_str());
+        Ok(result)
     }
 }
