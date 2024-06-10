@@ -3,7 +3,7 @@ use std::error::Error;
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct Episode {
     title: String,
     #[serde(rename = "releaseDate")]
@@ -12,7 +12,7 @@ struct Episode {
     description: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Season {
     overview: String,
     #[serde(rename = "episodeList")]
@@ -22,6 +22,7 @@ pub struct Season {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Series {
+    #[serde(rename(serialize = "id", deserialize = "_id"))]
     pub _id: ObjectId,
     #[serde(rename = "imdbId")]
     pub imdb_id: String,
@@ -32,6 +33,7 @@ pub struct Series {
     pub creator: String,
     #[serde(rename = "releaseDate")]
     pub release_date: String,
+    #[serde(rename = "trailerLink")]
     pub trailer_link: String,
     pub genres: Vec<String>,
     #[serde(rename = "seasonList")]
@@ -53,12 +55,25 @@ pub struct SeriesRequest {
     pub creator: String,
     #[serde(rename = "releaseDate")]
     pub release_date: String,
+    #[serde(rename = "trailerLink")]
     pub trailer_link: String,
     pub genres: Vec<String>,
     #[serde(rename = "seasonList")]
     pub season_list: Vec<Season>,
     pub poster: String,
     pub backdrop: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SeriesResponse {
+    #[serde(rename = "imdbId")]
+    pub imdb_id: String,
+    pub title: String,
+    #[serde(rename = "numberOfSeasons")]
+    pub number_of_seasons: u32,
+    #[serde(rename = "releaseDate")]
+    pub release_date: String,
+    pub poster: String,
 }
 
 impl TryFrom<SeriesRequest> for Series {
@@ -79,6 +94,20 @@ impl TryFrom<SeriesRequest> for Series {
             poster: item.poster,
             backdrop: item.backdrop,
             review_ids: Vec::new(),
+        })
+    }
+}
+
+impl TryFrom<Series> for SeriesResponse {
+    type Error = Box<dyn Error>;
+
+    fn try_from(item: Series) -> Result<Self, Self::Error> {
+        Ok(Self {
+            imdb_id: item.imdb_id,
+            title: item.title,
+            number_of_seasons: item.number_of_seasons,
+            release_date: item.release_date,
+            poster: item.poster,
         })
     }
 }

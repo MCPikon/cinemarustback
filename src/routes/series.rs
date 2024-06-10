@@ -7,7 +7,7 @@ use serde::Deserialize;
 
 use crate::{
     error::AppError,
-    models::movie::{Movie, MovieRequest},
+    models::series::{Series, SeriesRequest},
     services::db::Database,
 };
 
@@ -19,12 +19,12 @@ pub struct Params {
 }
 
 #[get("/findAll")]
-pub async fn get_movies(
+pub async fn get_series(
     db: Data<Database>,
     params: Query<Params>,
 ) -> Result<HttpResponse, AppError> {
     match db
-        .find_all_movies(
+        .find_all_series(
             params.title.clone(),
             params.page.clone(),
             params.size.clone(),
@@ -37,78 +37,79 @@ pub async fn get_movies(
 }
 
 #[get("/findById/{id}")]
-pub async fn get_movie_by_id(
+pub async fn get_series_by_id(
     db: Data<Database>,
     path: Path<String>,
 ) -> Result<HttpResponse, AppError> {
     let id = path.into_inner();
-    match db.find_movie_by_id(id.as_str()).await {
-        Ok(movie) => Ok(HttpResponse::Ok().json(movie)),
+    match db.find_series_by_id(id.as_str()).await {
+        Ok(series) => Ok(HttpResponse::Ok().json(series)),
         Err(err) => Err(err),
     }
 }
 
-#[get("/findByImdbId/{id}")]
-pub async fn get_movie_by_imdb_id(
+#[get("/findByImdbId/{imdbId}")]
+pub async fn get_series_by_imdb_id(
     db: Data<Database>,
     path: Path<String>,
 ) -> Result<HttpResponse, AppError> {
     let imdb_id = path.into_inner();
-    match db.find_movie_by_imdb_id(imdb_id.as_str()).await {
-        Ok(movie) => Ok(HttpResponse::Ok().json(movie)),
+    match db.find_series_by_imdb_id(imdb_id.as_str()).await {
+        Ok(series) => Ok(HttpResponse::Ok().json(series)),
         Err(err) => Err(err),
     }
 }
 
 #[post("/new")]
-pub async fn create_movie(
+pub async fn create_series(
     db: Data<Database>,
-    request: Json<MovieRequest>,
+    request: Json<SeriesRequest>,
 ) -> Result<HttpResponse, AppError> {
     match db
-        .create_movie(
-            Movie::try_from(MovieRequest {
+        .create_series(
+            Series::try_from(SeriesRequest {
                 imdb_id: request.imdb_id.clone(),
                 title: request.title.clone(),
                 overview: request.overview.clone(),
-                duration: request.duration.clone(),
-                director: request.director.clone(),
+                number_of_seasons: request.number_of_seasons.clone(),
+                creator: request.creator.clone(),
                 release_date: request.release_date.clone(),
                 trailer_link: request.trailer_link.clone(),
                 genres: request.genres.clone(),
+                season_list: request.season_list.clone(),
                 poster: request.poster.clone(),
                 backdrop: request.backdrop.clone(),
             })
-            .expect("Error converting request to Movie"),
+            .expect("Error converting request to Series"),
         )
         .await
     {
-        Ok(movie) => Ok(HttpResponse::Created().json(movie)),
+        Ok(series) => Ok(HttpResponse::Created().json(series)),
         Err(err) => Err(err),
     }
 }
 
 #[delete("/delete/{id}")]
-pub async fn delete_movie_by_id(
+pub async fn delete_series_by_id(
     db: Data<Database>,
     path: Path<String>,
 ) -> Result<HttpResponse, AppError> {
     let id = path.into_inner();
-    match db.delete_movie(id.as_str()).await {
+    match db.delete_series(id.as_str()).await {
         Ok(res) => Ok(HttpResponse::Ok().json(res)),
         Err(err) => Err(err),
     }
 }
 
 #[put("/update/{id}")]
-pub async fn update_movie_by_id(
+pub async fn update_series_by_id(
     db: Data<Database>,
     path: Path<String>,
-    movie: Json<MovieRequest>,
+    series: Json<SeriesRequest>,
 ) -> Result<HttpResponse, AppError> {
     let id = path.into_inner();
 
-    match db.update_movie(id.as_str(), movie.0).await {
+    match db.update_series(id.as_str(), series.0).await {
         Ok(res) => Ok(HttpResponse::Ok().json(res)),
         Err(err) => Err(err),
     }
@@ -121,7 +122,7 @@ pub struct PatchParams {
 }
 
 #[patch("/patch/{id}")]
-pub async fn patch_movie_by_id(
+pub async fn patch_series_by_id(
     db: Data<Database>,
     path: Path<String>,
     json_patch: Json<PatchParams>,
@@ -129,7 +130,7 @@ pub async fn patch_movie_by_id(
     let id = path.into_inner();
 
     match db
-        .patch_movie(
+        .patch_series(
             id.as_str(),
             json_patch.0.field.as_str(),
             json_patch.0.value.as_str(),
