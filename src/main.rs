@@ -6,7 +6,7 @@ mod services;
 use actix_web::{
     get,
     middleware::Logger,
-    web::{self, Data},
+    web::{self, Data, ServiceConfig},
     App, HttpResponse, HttpServer, Responder,
 };
 use env_logger::Env;
@@ -55,34 +55,37 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(db_data.clone())
+            .configure(routes_config)
             .wrap(Logger::default())
-            .service(
-                web::scope("/api/v1")
-                    .service(hello)
-                    .service(health)
-                    .service(
-                        web::scope("/movies")
-                            .service(get_movies)
-                            .service(get_movie_by_id)
-                            .service(get_movie_by_imdb_id)
-                            .service(create_movie)
-                            .service(delete_movie_by_id)
-                            .service(update_movie_by_id)
-                            .service(patch_movie_by_id),
-                    )
-                    .service(
-                        web::scope("/series")
-                            .service(get_series)
-                            .service(get_series_by_id)
-                            .service(get_series_by_imdb_id)
-                            .service(create_series)
-                            .service(delete_series_by_id)
-                            .service(update_series_by_id)
-                            .service(patch_series_by_id),
-                    ),
-            )
     })
     .bind(("localhost", PORT))?
     .run()
     .await
+}
+
+pub fn routes_config(conf: &mut ServiceConfig) {
+    let scope = web::scope("/api/v1")
+        .service(hello)
+        .service(health)
+        .service(
+            web::scope("/movies")
+                .service(get_movies)
+                .service(get_movie_by_id)
+                .service(get_movie_by_imdb_id)
+                .service(create_movie)
+                .service(delete_movie_by_id)
+                .service(update_movie_by_id)
+                .service(patch_movie_by_id),
+        )
+        .service(
+            web::scope("/series")
+                .service(get_series)
+                .service(get_series_by_id)
+                .service(get_series_by_imdb_id)
+                .service(create_series)
+                .service(delete_series_by_id)
+                .service(update_series_by_id)
+                .service(patch_series_by_id),
+        );
+    conf.service(scope);
 }
