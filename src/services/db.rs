@@ -4,7 +4,7 @@ use crate::{
     error::AppError,
     models::{
         movie::{Movie, MovieRequest, MovieResponse},
-        review::Review,
+        review::{Review, ReviewResponse},
         series::{Series, SeriesRequest, SeriesResponse},
     },
 };
@@ -22,7 +22,6 @@ use serde_json::{Map, Value};
 pub struct Database {
     movies: Collection<Movie>,
     series: Collection<Series>,
-    #[allow(dead_code)] // Provisional hasta que añada los endpoints
     reviews: Collection<Review>,
 }
 
@@ -824,5 +823,191 @@ impl Database {
             .ok()
             .expect(format!("Error patching series with id: '{}'", id).as_str());
         Ok(result)
+    }
+
+    // Reviews
+
+    pub async fn find_all_reviews(
+        &self,
+        page: Option<u32>,
+        size: Option<u32>,
+    ) -> Result<Map<String, Value>, AppError> {
+        info!("GET reviews /findAll executed");
+        let mut result_map: Map<String, Value> = Map::new();
+
+        let page_num = match page {
+            None => 0,
+            Some(page) => {
+                if page > 0 {
+                    page
+                } else {
+                    0
+                }
+            }
+        };
+        let page_size = match size {
+            None => 10,
+            Some(size) => {
+                if size > 0 {
+                    size
+                } else {
+                    10
+                }
+            }
+        };
+
+        let total_items = self
+            .reviews
+            .count_documents(None, CountOptions::default())
+            .await
+            .ok()
+            .expect("Error counting total of reviews");
+        let total_pages = (total_items as f64 / page_size as f64).ceil() as u64;
+
+        let options = FindOptions::builder()
+            .skip((page_num * page_size) as u64)
+            .limit(page_size as i64)
+            .build();
+
+        let cursor = self
+            .reviews
+            .find(None, options)
+            .await
+            .ok()
+            .expect("Error finding all reviews");
+
+        let review_list: Vec<ReviewResponse> = cursor
+            .map(|review| ReviewResponse::try_from(review.unwrap()))
+            .try_collect()
+            .await
+            .ok()
+            .expect("Error collecting reviews");
+
+        if review_list.is_empty() {
+            warn!("Warn in reviews /findAll [{}]", AppError::Empty.to_string());
+            return Err(AppError::Empty);
+        }
+
+        result_map.insert(
+            "reviews".to_string(),
+            serde_json::to_value(review_list).unwrap(),
+        );
+        result_map.insert(
+            "currentPage".to_string(),
+            serde_json::to_value(page_num).unwrap(),
+        );
+        result_map.insert(
+            "totalItems".to_string(),
+            serde_json::to_value(total_items).unwrap(),
+        );
+        result_map.insert(
+            "totalPages".to_string(),
+            serde_json::to_value(total_pages).unwrap(),
+        );
+
+        Ok(result_map)
+    }
+
+    pub async fn find_review_by_id(&self, id: &str) -> Result<ReviewResponse, AppError> {
+        info!("GET reviews /findById with id: '{}' executed", id);
+        let obj_id = ObjectId::from_str(id)?;
+        let review: ReviewResponse = match self.reviews.find_one(doc! {"_id": obj_id}, None).await {
+            Ok(Some(review)) => ReviewResponse::try_from(review).unwrap(),
+            Ok(None) => {
+                warn!(
+                    "Warn in reviews /findById with id: '{}' [{}]",
+                    id,
+                    AppError::NotFound.to_string()
+                );
+                return Err(AppError::NotFound);
+            }
+            Err(_) => {
+                error!(
+                    "Error in reviews /findById with id: '{}' [{}]",
+                    id,
+                    AppError::InternalServerError.to_string()
+                );
+                return Err(AppError::InternalServerError);
+            }
+        };
+        Ok(review)
+    }
+
+    pub async fn find_all_reviews_by_imdb_id(
+        &self,
+        imdb_id: &str,
+    ) -> Result<Vec<ReviewResponse>, AppError> {
+        info!(
+            "GET reviews /findAllByImdbId with imdbId: '{}' executed",
+            imdb_id
+        );
+
+        let re = regex::Regex::new(r"^tt\d+$").unwrap();
+        if !re.is_match(imdb_id) {
+            error!(
+                "Error in reviews /findAllByImdbId with imdbId: '{}' [{}]",
+                imdb_id,
+                AppError::WrongImdbId.to_string()
+            );
+            return Err(AppError::WrongImdbId);
+        }
+
+        let reviews_id_list: Vec<ObjectId>;
+        if self.movie_exists_by_imdb_id(imdb_id).await? {
+            reviews_id_list = match self.movies.find_one(doc! {"imdbId": imdb_id}, None).await {
+                Ok(movie) => movie.unwrap().review_ids,
+                Err(_) => {
+                    error!(
+                        "Error in reviews /findAllByImdbId with imdbId: '{}' [{}]",
+                        imdb_id,
+                        AppError::InternalServerError.to_string()
+                    );
+                    return Err(AppError::InternalServerError);
+                }
+            }
+        } else if self.series_exists_by_imdb_id(imdb_id).await? {
+            reviews_id_list = match self.series.find_one(doc! {"imdbId": imdb_id}, None).await {
+                Ok(series) => series.unwrap().review_ids,
+                Err(_) => {
+                    error!(
+                        "Error in reviews /findAllByImdbId with imdbId: '{}' [{}]",
+                        imdb_id,
+                        AppError::InternalServerError.to_string()
+                    );
+                    return Err(AppError::InternalServerError);
+                }
+            }
+        } else {
+            error!(
+                "Error in reviews /findAllByImdbId with imdbId: '{}' [{}]",
+                imdb_id,
+                AppError::NotExists.to_string()
+            );
+            return Err(AppError::NotExists);
+        }
+
+        let cursor = self
+            .reviews
+            .find(doc! { "_id": { "$in": reviews_id_list } }, None)
+            .await
+            .ok()
+            .expect("Error finding all reviews");
+
+        let review_list: Vec<ReviewResponse> = cursor
+            .map(|review| ReviewResponse::try_from(review.unwrap()))
+            .try_collect()
+            .await
+            .ok()
+            .expect("Error collecting reviews");
+
+        if review_list.is_empty() {
+            warn!(
+                "Warn in reviews /findAllByImdbId [{}]",
+                AppError::Empty.to_string()
+            );
+            return Err(AppError::Empty);
+        }
+
+        Ok(review_list)
     }
 }
