@@ -16,7 +16,10 @@ use routes::{
         create_movie, delete_movie_by_id, get_movie_by_id, get_movie_by_imdb_id, get_movies,
         patch_movie_by_id, update_movie_by_id,
     },
-    review::{get_review_by_id, get_reviews, get_reviews_by_imdb_id},
+    review::{
+        create_review, delete_review_by_id, get_review_by_id, get_reviews, get_reviews_by_imdb_id,
+        patch_review_by_id, update_review_by_id,
+    },
     series::{
         create_series, delete_series_by_id, get_series, get_series_by_id, get_series_by_imdb_id,
         patch_series_by_id, update_series_by_id,
@@ -92,7 +95,11 @@ pub fn routes_config(conf: &mut ServiceConfig) {
             web::scope("/reviews")
                 .service(get_reviews)
                 .service(get_review_by_id)
-                .service(get_reviews_by_imdb_id),
+                .service(get_reviews_by_imdb_id)
+                .service(create_review)
+                .service(delete_review_by_id)
+                .service(update_review_by_id)
+                .service(patch_review_by_id),
         );
     conf.service(scope);
 }

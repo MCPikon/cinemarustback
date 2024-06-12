@@ -23,7 +23,7 @@ pub struct Season {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Series {
-    #[serde(rename(serialize = "id", deserialize = "_id"))]
+    #[serde(rename(serialize = "_id", deserialize = "_id"))]
     pub _id: ObjectId,
     pub imdb_id: String,
     pub title: String,

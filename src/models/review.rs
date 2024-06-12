@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Review {
-    #[serde(rename(serialize = "id", deserialize = "_id"))]
+    #[serde(rename(serialize = "_id", deserialize = "_id"))]
     pub _id: ObjectId,
     pub title: String,
     pub rating: u32,
@@ -18,7 +18,7 @@ pub struct Review {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReviewResponse {
-    #[serde(rename(serialize = "id", deserialize = "_id"))]
+    #[serde(rename(serialize = "_id", deserialize = "_id"))]
     pub _id: ObjectId,
     pub title: String,
     pub rating: u32,
@@ -30,7 +30,16 @@ pub struct ReviewResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ReviewRequest {
+    pub title: String,
+    pub rating: u32,
+    pub body: String,
+    pub imdb_id: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ReviewUpdate {
     pub title: String,
     pub rating: u32,
     pub body: String,
@@ -40,6 +49,21 @@ impl TryFrom<ReviewRequest> for Review {
     type Error = Box<dyn Error>;
 
     fn try_from(item: ReviewRequest) -> Result<Self, Self::Error> {
+        Ok(Self {
+            _id: ObjectId::new(),
+            title: item.title,
+            rating: item.rating,
+            body: item.body,
+            created_at: DateTime::now(),
+            updated_at: DateTime::now(),
+        })
+    }
+}
+
+impl TryFrom<ReviewUpdate> for Review {
+    type Error = Box<dyn Error>;
+
+    fn try_from(item: ReviewUpdate) -> Result<Self, Self::Error> {
         Ok(Self {
             _id: ObjectId::new(),
             title: item.title,

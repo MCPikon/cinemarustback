@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Movie {
-    #[serde(rename(serialize = "id", deserialize = "_id"))]
+    #[serde(rename(serialize = "_id", deserialize = "_id"))]
     pub _id: ObjectId,
     pub imdb_id: String,
     pub title: String,
