@@ -12,6 +12,9 @@
 
 API REST de películas, series y reseñas de las mismas.
 
+> [!NOTE]
+> Este proyecto utiliza [Swagger UI](http://localhost:8080/api/swagger-ui/), [Redoc](http://localhost:8080/api/redoc) y [Scalar](http://localhost:8080/api/scalar) para la documentación.
+
 ## 💡 Cómo funciona
 
 Este proyecto realiza un CRUD (Crear, Obtener, Modificar y Eliminar) de Películas, Series y sus Reseñas. Disponen de entidades, DTOs, repositorios, servicios e implementaciones de los mismos.
@@ -31,6 +34,10 @@ Este proyecto realiza un CRUD (Crear, Obtener, Modificar y Eliminar) de Películ
     * regex (1.10.4)
     * serde (1.0.203)
     * serde_json (1.0.117)
+    * utoipa (4.2.3)
+    * utoipa-redoc (4.0.0)
+    * utoipa-scalar (0.1.0)
+    * utoipa-swagger-ui (7.1.0)
 
 ## 📄 Licencia
 

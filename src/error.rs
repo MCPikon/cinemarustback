@@ -2,8 +2,9 @@ use actix_web::{http::StatusCode, HttpResponse, ResponseError};
 use derive_more::{Display, Error};
 use log::error;
 use mongodb::bson;
+use utoipa::ToSchema;
 
-#[derive(Debug, Display, Error)]
+#[derive(Debug, Display, Error, ToSchema)]
 pub enum AppError {
     #[display(fmt = "Empty List")]
     Empty,

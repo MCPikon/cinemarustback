@@ -1,15 +1,15 @@
+use crate::{
+    error::AppError,
+    models::movie::{Movie, MovieRequest},
+    services::db::Database,
+};
 use actix_web::{
     delete, get, patch, post, put,
     web::{Data, Json, Path, Query},
     HttpResponse,
 };
 use serde::Deserialize;
-
-use crate::{
-    error::AppError,
-    models::movie::{Movie, MovieRequest},
-    services::db::Database,
-};
+use utoipa::ToSchema;
 
 #[derive(Debug, Deserialize)]
 pub struct Params {
@@ -18,6 +18,16 @@ pub struct Params {
     size: Option<u32>,
 }
 
+/// Find all movies
+#[utoipa::path(
+    path = "/api/v1/movies/findAll",
+    responses(
+        (status = 200, description = "List all movies with pagination", body = [MovieResponse]),
+        (status = 204, description = "Empty List", body = AppError, example = json!(AppError::Empty.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string())),
+    ),
+    tag = "Movies"
+)]
 #[get("/findAll")]
 pub async fn get_movies(
     db: Data<Database>,
@@ -36,6 +46,19 @@ pub async fn get_movies(
     }
 }
 
+/// Find movie by id
+#[utoipa::path(
+    path = "/api/v1/movies/findById/{id}",
+    responses(
+        (status = 200, description = "Fetch Movie by id", body = MovieDoc),
+        (status = 404, description = "Not Found", body = AppError, example = json!(AppError::NotFound.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    params(
+        ("id", description = "Unique ObjectId of Movie")
+    ),
+    tag = "Movies"
+)]
 #[get("/findById/{id}")]
 pub async fn get_movie_by_id(
     db: Data<Database>,
@@ -48,6 +71,20 @@ pub async fn get_movie_by_id(
     }
 }
 
+/// Find movie by imdbId
+#[utoipa::path(
+    path = "/api/v1/movies/findByImdbId/{imdbId}",
+    responses(
+        (status = 200, description = "Fetch Movie by imdbId", body = MovieDoc),
+        (status = 400, description = "Wrong ImdbId passed", body = AppError, example = json!(AppError::WrongImdbId.to_string())),
+        (status = 404, description = "Not Found", body = AppError, example = json!(AppError::NotFound.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    params(
+        ("id", description = "Unique imdbId of Movie")
+    ),
+    tag = "Movies"
+)]
 #[get("/findByImdbId/{id}")]
 pub async fn get_movie_by_imdb_id(
     db: Data<Database>,
@@ -60,6 +97,17 @@ pub async fn get_movie_by_imdb_id(
     }
 }
 
+/// Create new movie
+#[utoipa::path(
+    path = "/api/v1/movies/new",
+    responses(
+        (status = 201, description = "Created"),
+        (status = 400, description = "Already Exists", body = AppError, example = json!(AppError::AlreadyExists.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    request_body = MovieRequest,
+    tag = "Movies"
+)]
 #[post("/new")]
 pub async fn create_movie(
     db: Data<Database>,
@@ -88,6 +136,19 @@ pub async fn create_movie(
     }
 }
 
+/// Delete movie by id
+#[utoipa::path(
+    path = "/api/v1/movies/delete/{id}",
+    responses(
+        (status = 200, description = "Deleted"),
+        (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    params(
+        ("id", description = "Unique imdbId of Movie")
+    ),
+    tag = "Movies"
+)]
 #[delete("/delete/{id}")]
 pub async fn delete_movie_by_id(
     db: Data<Database>,
@@ -100,6 +161,22 @@ pub async fn delete_movie_by_id(
     }
 }
 
+/// Update movie by id
+#[utoipa::path(
+    path = "/api/v1/movies/update/{id}",
+    responses(
+        (status = 200, description = "Updated"),
+        (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
+        (status = 400, description = "Wrong ImdbId passed", body = AppError, example = json!(AppError::WrongImdbId.to_string())),
+        (status = 400, description = "ImdbId in use", body = AppError, example = json!(AppError::ImdbIdInUse.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    params(
+        ("id", description = "Unique imdbId of Movie")
+    ),
+    request_body = MovieRequest,
+    tag = "Movies"
+)]
 #[put("/update/{id}")]
 pub async fn update_movie_by_id(
     db: Data<Database>,
@@ -114,12 +191,29 @@ pub async fn update_movie_by_id(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct PatchParams {
     field: String,
     value: String,
 }
 
+/// Patch movie by id
+#[utoipa::path(
+    path = "/api/v1/movies/patch/{id}",
+    responses(
+        (status = 200, description = "Patched"),
+        (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
+        (status = 400, description = "Field not allowed", body = AppError, example = json!(AppError::FieldNotAllowed.to_string())),
+        (status = 400, description = "Wrong ImdbId passed", body = AppError, example = json!(AppError::WrongImdbId.to_string())),
+        (status = 400, description = "ImdbId in use", body = AppError, example = json!(AppError::ImdbIdInUse.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    params(
+        ("id", description = "Unique imdbId of Movie")
+    ),
+    request_body = PatchParams,
+    tag = "Movies"
+)]
 #[patch("/patch/{id}")]
 pub async fn patch_movie_by_id(
     db: Data<Database>,

@@ -2,6 +2,7 @@ use std::error::Error;
 
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -21,7 +22,25 @@ pub struct Movie {
     pub review_ids: Vec<ObjectId>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MovieDoc {
+    #[serde(rename(serialize = "_id", deserialize = "_id"))]
+    pub _id: String,
+    pub imdb_id: String,
+    pub title: String,
+    pub overview: String,
+    pub duration: String,
+    pub director: String,
+    pub release_date: String,
+    pub trailer_link: String,
+    pub genres: Vec<String>,
+    pub poster: String,
+    pub backdrop: String,
+    pub review_ids: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MovieRequest {
     pub imdb_id: String,
@@ -36,7 +55,7 @@ pub struct MovieRequest {
     pub backdrop: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MovieResponse {
     pub imdb_id: String,
