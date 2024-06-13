@@ -1,8 +1,11 @@
 # CinemaRustBack
 
 [![Rust](https://img.shields.io/badge/2021-black?style=for-the-badge&logo=rust&logoColor=white&label=Rust&labelColor=black&color=white)](https://www.rust-lang.org/es) &nbsp;
-[![Rust](https://img.shields.io/badge/4.6.0-black?style=for-the-badge&logo=actix&logoColor=white&label=Actix%20Web&labelColor=black&color=white)](https://www.rust-lang.org/es) &nbsp;
-[![MongoDB](https://img.shields.io/badge/MongoDB-6.0+-00684A?style=for-the-badge&logo=mongodb&logoColor=white&labelColor=101010)](https://www.mongodb.com)
+[![Rust](https://img.shields.io/badge/4.7.0-black?style=for-the-badge&logo=actix&logoColor=white&label=Actix%20Web&labelColor=black&color=white)](https://www.rust-lang.org/es) &nbsp;
+[![MongoDB](https://img.shields.io/badge/MongoDB-6.0+-00684A?style=for-the-badge&logo=mongodb&logoColor=white&labelColor=101010)](https://www.mongodb.com) &nbsp;
+[![Swagger](https://img.shields.io/badge/Swagger-OAS3-%2385EA2D?style=for-the-badge&logo=swagger&logoColor=%23FFFFFF&labelColor=%23000000)](https://swagger.io/) &nbsp;
+[![Redoc](https://img.shields.io/badge/Redoc-OAS3-gray?style=for-the-badge&logo=swagger&logoColor=%23FFFFFF&labelColor=%23000000)](https://swagger.io/) &nbsp;
+[![Scalar](https://img.shields.io/badge/Scalar-OAS3-blue?style=for-the-badge&logo=swagger&logoColor=%23FFFFFF&labelColor=%23000000)](https://swagger.io/)
 
 ## 🙋‍♂️ Autor
 
@@ -22,7 +25,7 @@ Este proyecto realiza un CRUD (Crear, Obtener, Modificar y Eliminar) de Películ
 ## 🛠 Tecnologías
 
 * Rust (2021 Edition)
-* Actix Web 4.6.0
+* Actix Web 4.7.0
 * _**Dependencias (Crates):**_
     * chrono (0.4.38)
     * derive_more (0.99.17)
@@ -31,7 +34,7 @@ Este proyecto realiza un CRUD (Crear, Obtener, Modificar y Eliminar) de Películ
     * futures-util (0.3.30)
     * log (0.4.21)
     * mongodb (2.8.2)
-    * regex (1.10.4)
+    * regex (1.10.5)
     * serde (1.0.203)
     * serde_json (1.0.117)
     * utoipa (4.2.3)
