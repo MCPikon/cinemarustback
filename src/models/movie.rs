@@ -27,15 +27,25 @@ pub struct Movie {
 pub struct MovieDoc {
     #[serde(rename(serialize = "_id", deserialize = "_id"))]
     pub _id: String,
+    #[schema(example = "tt12345")]
     pub imdb_id: String,
+    #[schema(example = "El lobo de Wall Street")]
     pub title: String,
+    #[schema(example = "La nueva película de Martin Scorsese: La biografía de Jordan Belfort.")]
     pub overview: String,
+    #[schema(example = "2h 59m")]
     pub duration: String,
+    #[schema(example = "Martin Scorsese")]
     pub director: String,
+    #[schema(example = "2014-01-17")]
     pub release_date: String,
+    #[schema(example = "https://youtu.be/DEMZSa0esCU")]
     pub trailer_link: String,
+    #[schema(example = "Crimen, Drama, Comedia")]
     pub genres: Vec<String>,
+    #[schema(example = "https://image.tmdb.org/t/p/original/jTlIYjvS16XOpsfvYCTmtEHV10K.jpg")]
     pub poster: String,
+    #[schema(example = "https://image.tmdb.org/t/p/original/7Nwnmyzrtd0FkcRyPqmdzTPppQa.jpg")]
     pub backdrop: String,
     pub review_ids: Vec<String>,
 }
