@@ -2,6 +2,7 @@ use std::error::Error;
 
 use mongodb::bson::{oid::ObjectId, DateTime};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,7 +30,21 @@ pub struct ReviewResponse {
     pub updated_at: DateTime,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewResponseDoc {
+    #[serde(rename(serialize = "_id", deserialize = "_id"))]
+    pub _id: String,
+    pub title: String,
+    pub rating: u32,
+    pub body: String,
+    #[schema(value_type = String, format = DateTime)]
+    pub created_at: String,
+    #[schema(value_type = String, format = DateTime)]
+    pub updated_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ReviewRequest {
     pub title: String,
@@ -38,7 +53,7 @@ pub struct ReviewRequest {
     pub imdb_id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ReviewUpdate {
     pub title: String,
     pub rating: u32,

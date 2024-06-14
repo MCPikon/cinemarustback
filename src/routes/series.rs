@@ -4,6 +4,7 @@ use actix_web::{
     HttpResponse,
 };
 use serde::Deserialize;
+use utoipa::{IntoParams, ToSchema};
 
 use crate::{
     error::AppError,
@@ -11,13 +12,26 @@ use crate::{
     services::db::Database,
 };
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, IntoParams)]
 pub struct Params {
     title: Option<String>,
     page: Option<u32>,
     size: Option<u32>,
 }
 
+/// Find all series
+#[utoipa::path(
+    path = "/api/v1/series/findAll",
+    responses(
+        (status = 200, description = "List all series with pagination", body = [SeriesResponse]),
+        (status = 204, description = "Empty List", body = AppError, example = json!(AppError::Empty.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string())),
+    ),
+    params(
+        Params
+    ),
+    tag = "Series"
+)]
 #[get("/findAll")]
 pub async fn get_series(
     db: Data<Database>,
@@ -36,6 +50,19 @@ pub async fn get_series(
     }
 }
 
+/// Find series by id
+#[utoipa::path(
+    path = "/api/v1/series/findById/{id}",
+    responses(
+        (status = 200, description = "Fetch Series by id", body = SeriesDoc),
+        (status = 404, description = "Not Found", body = AppError, example = json!(AppError::NotFound.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    params(
+        ("id", description = "Unique ObjectId of Series")
+    ),
+    tag = "Series"
+)]
 #[get("/findById/{id}")]
 pub async fn get_series_by_id(
     db: Data<Database>,
@@ -48,6 +75,19 @@ pub async fn get_series_by_id(
     }
 }
 
+/// Find series by imdbId
+#[utoipa::path(
+    path = "/api/v1/series/findByImdbId/{imdbId}",
+    responses(
+        (status = 200, description = "Fetch Series by imdbId", body = SeriesDoc),
+        (status = 404, description = "Not Found", body = AppError, example = json!(AppError::NotFound.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    params(
+        ("imdbId", description = "Unique ImdbId of Series")
+    ),
+    tag = "Series"
+)]
 #[get("/findByImdbId/{imdbId}")]
 pub async fn get_series_by_imdb_id(
     db: Data<Database>,
@@ -60,6 +100,17 @@ pub async fn get_series_by_imdb_id(
     }
 }
 
+/// Create new series
+#[utoipa::path(
+    path = "/api/v1/series/new",
+    responses(
+        (status = 201, description = "Created"),
+        (status = 400, description = "Already Exists", body = AppError, example = json!(AppError::AlreadyExists.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    request_body = SeriesRequest,
+    tag = "Series"
+)]
 #[post("/new")]
 pub async fn create_series(
     db: Data<Database>,
@@ -89,6 +140,19 @@ pub async fn create_series(
     }
 }
 
+/// Delete series by id
+#[utoipa::path(
+    path = "/api/v1/series/delete/{id}",
+    responses(
+        (status = 200, description = "Deleted"),
+        (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    params(
+        ("id", description = "Unique ObjectId of Series")
+    ),
+    tag = "Series"
+)]
 #[delete("/delete/{id}")]
 pub async fn delete_series_by_id(
     db: Data<Database>,
@@ -101,6 +165,22 @@ pub async fn delete_series_by_id(
     }
 }
 
+/// Update series by id
+#[utoipa::path(
+    path = "/api/v1/series/update/{id}",
+    responses(
+        (status = 200, description = "Updated"),
+        (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
+        (status = 400, description = "Wrong ImdbId passed", body = AppError, example = json!(AppError::WrongImdbId.to_string())),
+        (status = 400, description = "ImdbId in use", body = AppError, example = json!(AppError::ImdbIdInUse.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    params(
+        ("id", description = "Unique ObjectId of Series")
+    ),
+    request_body = SeriesRequest,
+    tag = "Series"
+)]
 #[put("/update/{id}")]
 pub async fn update_series_by_id(
     db: Data<Database>,
@@ -115,12 +195,29 @@ pub async fn update_series_by_id(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct PatchParams {
     field: String,
     value: String,
 }
 
+/// Patch series by id
+#[utoipa::path(
+    path = "/api/v1/series/patch/{id}",
+    responses(
+        (status = 200, description = "Patched"),
+        (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
+        (status = 400, description = "Field not allowed", body = AppError, example = json!(AppError::FieldNotAllowed.to_string())),
+        (status = 400, description = "Wrong ImdbId passed", body = AppError, example = json!(AppError::WrongImdbId.to_string())),
+        (status = 400, description = "ImdbId in use", body = AppError, example = json!(AppError::ImdbIdInUse.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    params(
+        ("id", description = "Unique ObjectId of Series")
+    ),
+    request_body = PatchParams,
+    tag = "Series"
+)]
 #[patch("/patch/{id}")]
 pub async fn patch_series_by_id(
     db: Data<Database>,

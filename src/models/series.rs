@@ -2,17 +2,18 @@ use std::error::Error;
 
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
-struct Episode {
+pub struct Episode {
     title: String,
     release_date: String,
     duration: String,
     description: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Season {
     overview: String,
@@ -39,7 +40,26 @@ pub struct Series {
     pub review_ids: Vec<ObjectId>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SeriesDoc {
+    #[serde(rename(serialize = "_id", deserialize = "_id"))]
+    pub _id: String,
+    pub imdb_id: String,
+    pub title: String,
+    pub overview: String,
+    pub number_of_seasons: u32,
+    pub creator: String,
+    pub release_date: String,
+    pub trailer_link: String,
+    pub genres: Vec<String>,
+    pub season_list: Vec<Season>,
+    pub poster: String,
+    pub backdrop: String,
+    pub review_ids: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SeriesRequest {
     pub imdb_id: String,
@@ -55,7 +75,7 @@ pub struct SeriesRequest {
     pub backdrop: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SeriesResponse {
     pub imdb_id: String,

@@ -9,9 +9,9 @@ use actix_web::{
     HttpResponse,
 };
 use serde::Deserialize;
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, IntoParams)]
 pub struct Params {
     title: Option<String>,
     page: Option<u32>,
@@ -25,6 +25,9 @@ pub struct Params {
         (status = 200, description = "List all movies with pagination", body = [MovieResponse]),
         (status = 204, description = "Empty List", body = AppError, example = json!(AppError::Empty.to_string())),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string())),
+    ),
+    params(
+        Params
     ),
     tag = "Movies"
 )]
@@ -81,11 +84,11 @@ pub async fn get_movie_by_id(
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
     params(
-        ("id", description = "Unique imdbId of Movie")
+        ("imdbId", description = "Unique imdbId of Movie")
     ),
     tag = "Movies"
 )]
-#[get("/findByImdbId/{id}")]
+#[get("/findByImdbId/{imdbId}")]
 pub async fn get_movie_by_imdb_id(
     db: Data<Database>,
     path: Path<String>,
@@ -145,7 +148,7 @@ pub async fn create_movie(
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
     params(
-        ("id", description = "Unique imdbId of Movie")
+        ("id", description = "Unique ObjectId of Movie")
     ),
     tag = "Movies"
 )]
@@ -172,7 +175,7 @@ pub async fn delete_movie_by_id(
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
     params(
-        ("id", description = "Unique imdbId of Movie")
+        ("id", description = "Unique ObjectId of Movie")
     ),
     request_body = MovieRequest,
     tag = "Movies"
@@ -209,7 +212,7 @@ pub struct PatchParams {
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
     params(
-        ("id", description = "Unique imdbId of Movie")
+        ("id", description = "Unique ObjectId of Movie")
     ),
     request_body = PatchParams,
     tag = "Movies"

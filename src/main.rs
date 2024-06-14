@@ -86,13 +86,31 @@ async fn main() -> std::io::Result<()> {
             routes::movie::delete_movie_by_id,
             routes::movie::update_movie_by_id,
             routes::movie::patch_movie_by_id,
+            routes::series::get_series,
+            routes::series::get_series_by_id,
+            routes::series::get_series_by_imdb_id,
+            routes::series::create_series,
+            routes::series::delete_series_by_id,
+            routes::series::update_series_by_id,
+            routes::series::patch_series_by_id,
+            routes::review::get_reviews,
+            routes::review::get_reviews_by_imdb_id,
+            routes::review::get_review_by_id,
+            routes::review::create_review,
+            routes::review::delete_review_by_id,
+            routes::review::update_review_by_id,
+            routes::review::patch_review_by_id
         ),
         components(
-            schemas(error::AppError, models::movie::MovieDoc, models::movie::MovieRequest, models::movie::MovieResponse, routes::movie::PatchParams)
+            schemas(error::AppError, models::movie::MovieDoc, models::movie::MovieRequest, models::movie::MovieResponse, routes::movie::PatchParams, 
+                models::series::SeriesDoc, models::series::SeriesRequest, models::series::SeriesResponse, models::series::Season, models::series::Episode,
+                models::review::ReviewResponseDoc, models::review::ReviewRequest, models::review::ReviewUpdate)
         ),
         tags(
             (name = "General", description = "Some endpoints for general purposes."),
-            (name = "Movies", description = "Movies management endpoints.")
+            (name = "Movies", description = "Movies management endpoints."),
+            (name = "Series", description = "Series management endpoints."),
+            (name = "Reviews", description = "Reviews management endpoints.")
         )
     )]
     struct ApiDoc;

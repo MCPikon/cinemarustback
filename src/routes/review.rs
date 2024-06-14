@@ -4,6 +4,7 @@ use actix_web::{
     HttpResponse,
 };
 use serde::Deserialize;
+use utoipa::{IntoParams, ToSchema};
 
 use crate::{
     error::AppError,
@@ -11,12 +12,25 @@ use crate::{
     services::db::Database,
 };
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, IntoParams)]
 pub struct Params {
     page: Option<u32>,
     size: Option<u32>,
 }
 
+/// Find all reviews
+#[utoipa::path(
+    path = "/api/v1/reviews/findAll",
+    responses(
+        (status = 200, description = "List all reviews with pagination", body = [ReviewResponseDoc]),
+        (status = 204, description = "Empty List", body = AppError, example = json!(AppError::Empty.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string())),
+    ),
+    params(
+        Params
+    ),
+    tag = "Reviews"
+)]
 #[get("/findAll")]
 pub async fn get_reviews(
     db: Data<Database>,
@@ -31,6 +45,21 @@ pub async fn get_reviews(
     }
 }
 
+/// Find all reviews by imdbId
+#[utoipa::path(
+    path = "/api/v1/reviews/findAllByImdbId/{imdbId}",
+    responses(
+        (status = 200, description = "List all reviews by imdbId with pagination", body = [ReviewResponseDoc]),
+        (status = 204, description = "Empty List", body = AppError, example = json!(AppError::Empty.to_string())),
+        (status = 400, description = "Wrong ImdbId passed", body = AppError, example = json!(AppError::WrongImdbId.to_string())),
+        (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string())),
+    ),
+    params(
+        ("imdbId", description = "Unique imdbId of Movie or Series")
+    ),
+    tag = "Reviews"
+)]
 #[get("/findAllByImdbId/{imdbId}")]
 pub async fn get_reviews_by_imdb_id(
     db: Data<Database>,
@@ -43,6 +72,19 @@ pub async fn get_reviews_by_imdb_id(
     }
 }
 
+/// Find review by id
+#[utoipa::path(
+    path = "/api/v1/reviews/findById/{id}",
+    responses(
+        (status = 200, description = "Fetch Review by id", body = ReviewResponseDoc),
+        (status = 404, description = "Not Found", body = AppError, example = json!(AppError::NotFound.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    params(
+        ("id", description = "Unique ObjectId of Review")
+    ),
+    tag = "Reviews"
+)]
 #[get("/findById/{id}")]
 pub async fn get_review_by_id(
     db: Data<Database>,
@@ -55,6 +97,18 @@ pub async fn get_review_by_id(
     }
 }
 
+/// Create new review
+#[utoipa::path(
+    path = "/api/v1/reviews/new",
+    responses(
+        (status = 201, description = "Created"),
+        (status = 400, description = "Wrong ImdbId passed", body = AppError, example = json!(AppError::WrongImdbId.to_string())),
+        (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    request_body = ReviewRequest,
+    tag = "Reviews"
+)]
 #[post("/new")]
 pub async fn create_review(
     db: Data<Database>,
@@ -78,6 +132,19 @@ pub async fn create_review(
     }
 }
 
+/// Delete review by id
+#[utoipa::path(
+    path = "/api/v1/reviews/delete/{id}",
+    responses(
+        (status = 200, description = "Deleted"),
+        (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    params(
+        ("id", description = "Unique ObjectId of Review")
+    ),
+    tag = "Reviews"
+)]
 #[delete("/delete/{id}")]
 pub async fn delete_review_by_id(
     db: Data<Database>,
@@ -90,6 +157,20 @@ pub async fn delete_review_by_id(
     }
 }
 
+/// Update review by id
+#[utoipa::path(
+    path = "/api/v1/reviews/update/{id}",
+    responses(
+        (status = 200, description = "Updated"),
+        (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    params(
+        ("id", description = "Unique ObjectId of Review")
+    ),
+    request_body = ReviewRequest,
+    tag = "Reviews"
+)]
 #[put("/update/{id}")]
 pub async fn update_review_by_id(
     db: Data<Database>,
@@ -104,12 +185,27 @@ pub async fn update_review_by_id(
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct PatchParams {
     field: String,
     value: String,
 }
 
+/// Patch review by id
+#[utoipa::path(
+    path = "/api/v1/reviews/patch/{id}",
+    responses(
+        (status = 200, description = "Patched"),
+        (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
+        (status = 400, description = "Field not allowed", body = AppError, example = json!(AppError::FieldNotAllowed.to_string())),
+        (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
+    ),
+    params(
+        ("id", description = "Unique ObjectId of Review")
+    ),
+    request_body = PatchParams,
+    tag = "Reviews"
+)]
 #[patch("/patch/{id}")]
 pub async fn patch_review_by_id(
     db: Data<Database>,
