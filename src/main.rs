@@ -3,6 +3,8 @@ mod models;
 mod routes;
 mod services;
 
+use std::net::Ipv4Addr;
+
 use actix_web::{
     get,
     middleware::Logger,
@@ -134,7 +136,7 @@ async fn main() -> std::io::Result<()> {
             .service(Scalar::with_url("/api/scalar", openapi.clone()))
             .wrap(Logger::default())
     })
-    .bind(("localhost", PORT))?
+    .bind((Ipv4Addr::UNSPECIFIED, PORT))?
     .run()
     .await
 }

@@ -68,10 +68,15 @@ pub struct MovieRequest {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct MovieResponse {
+    #[schema(example = "tt12345")]
     pub imdb_id: String,
+    #[schema(example = "El lobo de Wall Street")]
     pub title: String,
+    #[schema(example = "2h 59m")]
     pub duration: String,
+    #[schema(example = "2014-01-17")]
     pub release_date: String,
+    #[schema(example = "https://image.tmdb.org/t/p/original/jTlIYjvS16XOpsfvYCTmtEHV10K.jpg")]
     pub poster: String,
 }
 

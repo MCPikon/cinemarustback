@@ -45,16 +45,26 @@ pub struct Series {
 pub struct SeriesDoc {
     #[serde(rename(serialize = "_id", deserialize = "_id"))]
     pub _id: String,
+    #[schema(example = "tt12345")]
     pub imdb_id: String,
+    #[schema(example = "La Casa del Dragón")]
     pub title: String,
+    #[schema(example = "Basada en el libro 'Fuego y Sangre' de George R.R. Martin.")]
     pub overview: String,
+    #[schema(example = 2)]
     pub number_of_seasons: u32,
+    #[schema(example = "George R.R. Martin")]
     pub creator: String,
+    #[schema(example = "2021-06-21")]
     pub release_date: String,
+    #[schema(example = "https://youtu.be/oBFtJUWuGFI")]
     pub trailer_link: String,
+    #[schema(example = "Ciencia Ficción y Fantasía, Drama, Acción y Aventura")]
     pub genres: Vec<String>,
     pub season_list: Vec<Season>,
+    #[schema(example = "https://image.tmdb.org/t/p/original/fAos5hPi7TB49KpuIAjvQNZkvwM.jpg")]
     pub poster: String,
+    #[schema(example = "https://image.tmdb.org/t/p/original/xtAQ7j9Yd0j4Rjbvx1hW0ENpXjf.jpg")]
     pub backdrop: String,
     pub review_ids: Vec<String>,
 }
@@ -78,10 +88,15 @@ pub struct SeriesRequest {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SeriesResponse {
+    #[schema(example = "tt12345")]
     pub imdb_id: String,
+    #[schema(example = "La Casa del Dragón")]
     pub title: String,
+    #[schema(example = 2)]
     pub number_of_seasons: u32,
+    #[schema(example = "2021-06-21")]
     pub release_date: String,
+    #[schema(example = "https://image.tmdb.org/t/p/original/fAos5hPi7TB49KpuIAjvQNZkvwM.jpg")]
     pub poster: String,
 }
 

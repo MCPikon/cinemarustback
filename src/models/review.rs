@@ -35,12 +35,15 @@ pub struct ReviewResponse {
 pub struct ReviewResponseDoc {
     #[serde(rename(serialize = "_id", deserialize = "_id"))]
     pub _id: String,
+    #[schema(example = "Una secuela muy a la altura de la anterior.")]
     pub title: String,
+    #[schema(example = 4)]
     pub rating: u32,
+    #[schema(example = "La verdad que nos quedamos con ganas de más en esta película.")]
     pub body: String,
-    #[schema(value_type = String, format = DateTime)]
+    #[schema(value_type = String, format = DateTime, example = "2024-05-07T11:56:05.792+00:00")]
     pub created_at: String,
-    #[schema(value_type = String, format = DateTime)]
+    #[schema(value_type = String, format = DateTime, example = "2024-05-07T11:56:05.792+00:00")]
     pub updated_at: String,
 }
 
