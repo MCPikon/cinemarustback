@@ -3,7 +3,7 @@ mod models;
 mod routes;
 mod services;
 
-use std::net::Ipv4Addr;
+use std::{collections::HashMap, net::Ipv4Addr};
 
 use actix_web::{
     get,
@@ -51,7 +51,7 @@ async fn hello() -> impl Responder {
 #[utoipa::path(
     path = "/api/v1/health",
     responses(
-        (status = 200, description = "Health check"),
+        (status = 200, description = "Health check", body = String, content_type = "application/json", example = json!(HashMap::from([("status".to_string(), "UP".to_string()), ("message".to_string(), "All systems working correctly.".to_string())]))),
     ),
     tag = "General"
 )]

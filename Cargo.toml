@@ -24,3 +24,4 @@ utoipa = { version = "4.2.3", features = ["actix_extras", "chrono"] }
 utoipa-redoc = { version = "4.0.0", features = ["actix-web"] }
 utoipa-scalar = { version = "0.1.0", features = ["actix-web"] }
 utoipa-swagger-ui = { version = "7.1.0", features = ["actix-web"] }
+validator = { version = "0.18.1", features = ["derive"] }

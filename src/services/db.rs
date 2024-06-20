@@ -200,7 +200,7 @@ impl Database {
         Ok(movie)
     }
 
-    pub async fn create_movie(&self, movie: Movie) -> Result<InsertOneResult, AppError> {
+    pub async fn create_movie(&self, movie: Movie) -> Result<Map<String, Value>, AppError> {
         info!("POST movies /new executed");
         if self
             .movie_exists_by_imdb_id(movie.imdb_id.clone().as_str())
@@ -228,7 +228,19 @@ impl Database {
             .await
             .ok()
             .expect(format!("Error creating movie with imdbId: '{}'", movie.imdb_id).as_str());
-        Ok(result)
+
+        let mut map_result: Map<String, Value> = Map::new();
+        map_result.insert(
+            "message".to_string(),
+            Value::String(
+                format!(
+                    "Movie was successfully created. (id: '{}')",
+                    result.inserted_id.as_object_id().unwrap().to_string()
+                )
+                .to_string(),
+            ),
+        );
+        Ok(map_result)
     }
 
     pub async fn delete_movie(&self, id: &str) -> Result<Map<String, Value>, AppError> {

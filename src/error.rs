@@ -3,6 +3,7 @@ use derive_more::{Display, Error};
 use log::error;
 use mongodb::bson;
 use utoipa::ToSchema;
+use validator::ValidationErrors;
 
 #[derive(Debug, Display, Error, ToSchema)]
 pub enum AppError {
@@ -24,6 +25,8 @@ pub enum AppError {
     FieldNotAllowed,
     #[display(fmt = "An internal server error ocurred.")]
     InternalServerError,
+    #[display(fmt = "Error in Validation: ({_0})")]
+    ValidationAppError(#[error(not(source))] String),
 }
 
 impl ResponseError for AppError {
@@ -45,6 +48,7 @@ impl ResponseError for AppError {
             AppError::ImdbIdInUse => StatusCode::BAD_REQUEST,
             AppError::FieldNotAllowed => StatusCode::BAD_REQUEST,
             AppError::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::ValidationAppError(_) => StatusCode::BAD_REQUEST,
         }
     }
 }
@@ -55,4 +59,36 @@ impl From<bson::oid::Error> for AppError {
         error!("Error parsing ObjectId from string");
         AppError::CannotParseObjId
     }
+}
+
+impl From<ValidationErrors> for AppError {
+    fn from(err: ValidationErrors) -> Self {
+        let msg = format_validation_errors(err);
+        error!("Error in Validation: [{msg}]");
+        AppError::ValidationAppError(msg)
+    }
+}
+
+fn format_validation_errors(errors: ValidationErrors) -> String {
+    errors
+        .field_errors()
+        .iter()
+        .fold(String::new(), |mut acc, (field, errors)| {
+            let messages = errors
+                .iter()
+                .map(|error| {
+                    error
+                        .message
+                        .clone()
+                        .unwrap_or_else(|| "Error formatting validations errors".into())
+                        .into_owned()
+                })
+                .collect::<Vec<String>>()
+                .join(", ");
+            if !acc.is_empty() {
+                acc.push_str("; ");
+            }
+            acc.push_str(&format!("{}: {}", field, messages));
+            acc
+        })
 }

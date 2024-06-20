@@ -3,6 +3,7 @@ use std::error::Error;
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use validator::Validate;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,11 +51,13 @@ pub struct MovieDoc {
     pub review_ids: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct MovieRequest {
     pub imdb_id: String,
+    #[validate(length(min = 1, message = "El título de la película no puede estar vacío."))]
     pub title: String,
+    #[validate(length(min = 1, message = "La sinopsis de la película no puede estar vacía."))]
     pub overview: String,
     pub duration: String,
     pub director: String,
