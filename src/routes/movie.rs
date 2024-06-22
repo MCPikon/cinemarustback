@@ -175,7 +175,7 @@ pub async fn delete_movie_by_id(
 #[utoipa::path(
     path = "/api/v1/movies/update/{id}",
     responses(
-        (status = 200, description = "Updated"),
+        (status = 200, description = "Updated", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Movie with id: '1234' was successfully updated".to_string())]))),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
         (status = 400, description = "Wrong ImdbId or ImdbId in use", body = AppError, examples(
             ("Wrong ImdbId" = (value = json!(AppError::WrongImdbId.to_string()))),
@@ -213,7 +213,7 @@ pub struct PatchParams {
 #[utoipa::path(
     path = "/api/v1/movies/patch/{id}",
     responses(
-        (status = 200, description = "Patched"),
+        (status = 200, description = "Patched", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Movie title with id: '1234' was successfully patched".to_string())]))),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
         (status = 400, description = "Field not allowed, Wrong ImdbId or ImdbId in use", body = AppError, examples(
             ("Field not allowed" = (value = json!(AppError::FieldNotAllowed.to_string()))),

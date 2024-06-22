@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use actix_web::{
     delete, get, patch, post, put,
     web::{Data, Json, Path, Query},
@@ -80,6 +82,7 @@ pub async fn get_series_by_id(
     path = "/api/v1/series/findByImdbId/{imdbId}",
     responses(
         (status = 200, description = "Fetch Series by imdbId", body = SeriesDoc),
+        (status = 400, description = "Wrong ImdbId passed", body = AppError, example = json!(AppError::WrongImdbId.to_string())),
         (status = 404, description = "Not Found", body = AppError, example = json!(AppError::NotFound.to_string())),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
@@ -104,8 +107,11 @@ pub async fn get_series_by_imdb_id(
 #[utoipa::path(
     path = "/api/v1/series/new",
     responses(
-        (status = 201, description = "Created"),
-        (status = 400, description = "Already Exists", body = AppError, example = json!(AppError::AlreadyExists.to_string())),
+        (status = 201, description = "Created", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Series was successfully created. (id: '1234')".to_string())]))),
+        (status = 400, description = "Already Exists or Validation Error", body = AppError, examples(
+            ("AlreadyExists" = (value = json!(AppError::AlreadyExists.to_string()))),
+            ("ValidationError" = (value = json!(AppError::ValidationAppError("title: El título de la serie no puede estar vacío.".to_string()).to_string())))
+        )),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
     request_body = SeriesRequest,
@@ -144,7 +150,7 @@ pub async fn create_series(
 #[utoipa::path(
     path = "/api/v1/series/delete/{id}",
     responses(
-        (status = 200, description = "Deleted"),
+        (status = 200, description = "Deleted", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Series with id: '1234' was successfully deleted".to_string())]))),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
@@ -169,10 +175,12 @@ pub async fn delete_series_by_id(
 #[utoipa::path(
     path = "/api/v1/series/update/{id}",
     responses(
-        (status = 200, description = "Updated"),
+        (status = 200, description = "Updated", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Series with id: '1234' was successfully updated".to_string())]))),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
-        (status = 400, description = "Wrong ImdbId passed", body = AppError, example = json!(AppError::WrongImdbId.to_string())),
-        (status = 400, description = "ImdbId in use", body = AppError, example = json!(AppError::ImdbIdInUse.to_string())),
+        (status = 400, description = "Wrong ImdbId or ImdbId in use", body = AppError, examples(
+            ("Wrong ImdbId" = (value = json!(AppError::WrongImdbId.to_string()))),
+            ("ImdbId in use" = (value = json!(AppError::ImdbIdInUse.to_string())))
+        )),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
     params(
@@ -205,11 +213,13 @@ pub struct PatchParams {
 #[utoipa::path(
     path = "/api/v1/series/patch/{id}",
     responses(
-        (status = 200, description = "Patched"),
+        (status = 200, description = "Patched", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Series title with id: '1234' was successfully patched".to_string())]))),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
-        (status = 400, description = "Field not allowed", body = AppError, example = json!(AppError::FieldNotAllowed.to_string())),
-        (status = 400, description = "Wrong ImdbId passed", body = AppError, example = json!(AppError::WrongImdbId.to_string())),
-        (status = 400, description = "ImdbId in use", body = AppError, example = json!(AppError::ImdbIdInUse.to_string())),
+        (status = 400, description = "Field not allowed, Wrong ImdbId or ImdbId in use", body = AppError, examples(
+            ("Field not allowed" = (value = json!(AppError::FieldNotAllowed.to_string()))),
+            ("Wrong ImdbId" = (value = json!(AppError::WrongImdbId.to_string()))),
+            ("ImdbId in use" = (value = json!(AppError::ImdbIdInUse.to_string())))
+        )),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
     params(
