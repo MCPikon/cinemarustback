@@ -32,6 +32,7 @@ Este proyecto realiza un CRUD (Crear, Obtener, Modificar y Eliminar) de Películ
     * dotenv (0.15.0)
     * env_logger (0.11.3)
     * futures-util (0.3.30)
+    * lazy_static (1.5.0)
     * log (0.4.21)
     * mongodb (2.8.2)
     * regex (1.10.5)
