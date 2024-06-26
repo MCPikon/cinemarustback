@@ -13,7 +13,7 @@ lazy_static! {
     static ref RE_DIRECTOR: Regex =
         Regex::new(r"^([a-zA-Z]+\.?)\s([a-zA-Z]+\.?)(?:\s([a-zA-Z]+))?$").unwrap();
     static ref RE_RELEASE_DATE: Regex =
-        Regex::new(r"^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$").unwrap();
+        Regex::new(r"^(\d{4})-([1-9]|0[1-9]|1[0-2])-([1-9]|0[1-9]|[12]\d|3[01])$").unwrap();
     static ref RE_TRAILER_LINK: Regex = Regex::new(r"^((?:https?:)?//)?((?:www|m)\.)?((?:youtube(-nocookie)?\.com|youtu.be))(/(?:[\w\-]+\\?v=|embed/|live/|v/)?)([\w\-]+)(\S+)?$").unwrap();
     static ref RE_REMOTE_IMAGES: Regex = Regex::new(r"(https?://\S+(?:png|jpe?g|webp)\S*)").unwrap();
 }

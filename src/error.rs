@@ -63,32 +63,60 @@ impl From<bson::oid::Error> for AppError {
 
 impl From<ValidationErrors> for AppError {
     fn from(err: ValidationErrors) -> Self {
-        let msg = format_validation_errors(err);
+        let msg = format_validation_errors(&err);
         error!("Error in Validation: [{msg}]");
         AppError::ValidationAppError(msg)
     }
 }
 
-fn format_validation_errors(errors: ValidationErrors) -> String {
+fn format_validation_errors(errors: &ValidationErrors) -> String {
+    format_errors(errors, 0)
+}
+
+fn format_errors(errors: &ValidationErrors, depth: usize) -> String {
+    let indent = " ".repeat(depth);
     errors
-        .field_errors()
+        .errors()
         .iter()
-        .fold(String::new(), |mut acc, (field, errors)| {
-            let messages = errors
-                .iter()
-                .map(|error| {
-                    error
-                        .message
-                        .clone()
-                        .unwrap_or_else(|| "Error formatting validations errors".into())
-                        .into_owned()
-                })
-                .collect::<Vec<String>>()
-                .join(", ");
-            if !acc.is_empty() {
-                acc.push_str("; ");
+        .map(|(field, error)| match error {
+            validator::ValidationErrorsKind::Struct(nested_errors) => {
+                format!(
+                    "{}{}: {}",
+                    indent,
+                    field,
+                    format_errors(nested_errors, depth + 1)
+                )
             }
-            acc.push_str(&format!("{}: {}", field, messages));
-            acc
+            validator::ValidationErrorsKind::List(list_errors) => {
+                let nested = list_errors
+                    .iter()
+                    .map(|(index, errors)| {
+                        format!(
+                            "{} [{}]: {}",
+                            indent,
+                            index,
+                            format_errors(errors, depth + 2)
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(";");
+                format!("{}{}: {}", indent, field, nested)
+            }
+            validator::ValidationErrorsKind::Field(field_errors) => {
+                let messages = field_errors
+                    .iter()
+                    .map(|error| {
+                        error
+                            .message
+                            .as_ref()
+                            .map(|m| m.to_string())
+                            .unwrap_or_else(|| "Unknown error".to_string())
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{}{}: {}", indent, field, messages)
+            }
         })
+        .collect::<Vec<_>>()
+        .join("; ")
 }

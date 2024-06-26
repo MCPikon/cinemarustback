@@ -110,7 +110,7 @@ pub async fn get_movie_by_imdb_id(
         (status = 201, description = "Created", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Movie was successfully created. (id: '1234')".to_string())]))),
         (status = 400, description = "Already Exists or Validation Error", body = AppError, examples(
             ("AlreadyExists" = (value = json!(AppError::AlreadyExists.to_string()))),
-            ("ValidationError" = (value = json!(AppError::ValidationAppError("title: El título de la película no puede estar vacío.".to_string()).to_string())))
+            ("ValidationError" = (value = json!(AppError::ValidationAppError("title: The movie title cannot be empty".to_string()).to_string())))
         )),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
@@ -177,7 +177,8 @@ pub async fn delete_movie_by_id(
     responses(
         (status = 200, description = "Updated", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Movie with id: '1234' was successfully updated".to_string())]))),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
-        (status = 400, description = "Wrong ImdbId or ImdbId in use", body = AppError, examples(
+        (status = 400, description = "Validation Error, Wrong ImdbId or ImdbId in use", body = AppError, examples(
+            ("ValidationError" = (value = json!(AppError::ValidationAppError("title: The movie title cannot be empty".to_string()).to_string()))),
             ("Wrong ImdbId" = (value = json!(AppError::WrongImdbId.to_string()))),
             ("ImdbId in use" = (value = json!(AppError::ImdbIdInUse.to_string())))
         )),
@@ -197,6 +198,7 @@ pub async fn update_movie_by_id(
 ) -> Result<HttpResponse, AppError> {
     let id = path.into_inner();
 
+    movie.validate()?;
     match db.update_movie(id.as_str(), movie.0).await {
         Ok(res) => Ok(HttpResponse::Ok().json(res)),
         Err(err) => Err(err),
