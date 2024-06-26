@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use actix_web::{
     delete, get, patch, post, put,
     web::{Data, Json, Path, Query},
@@ -101,8 +103,8 @@ pub async fn get_review_by_id(
 #[utoipa::path(
     path = "/api/v1/reviews/new",
     responses(
-        (status = 201, description = "Created"),
-        (status = 400, description = "Wrong ImdbId passed", body = AppError, example = json!(AppError::WrongImdbId.to_string())),
+        (status = 201, description = "Created", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Review was successfully created. (id: '1234')".to_string())]))),
+        (status = 400, description = "Wrong ImdbId", body = AppError, example = json!(AppError::WrongImdbId.to_string())),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
@@ -136,7 +138,7 @@ pub async fn create_review(
 #[utoipa::path(
     path = "/api/v1/reviews/delete/{id}",
     responses(
-        (status = 200, description = "Deleted"),
+        (status = 200, description = "Deleted", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Review with id: '1234' was successfully deleted".to_string())]))),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
@@ -161,7 +163,7 @@ pub async fn delete_review_by_id(
 #[utoipa::path(
     path = "/api/v1/reviews/update/{id}",
     responses(
-        (status = 200, description = "Updated"),
+        (status = 200, description = "Updated", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Review with id: '1234' was successfully updated".to_string())]))),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
@@ -195,7 +197,7 @@ pub struct PatchParams {
 #[utoipa::path(
     path = "/api/v1/reviews/patch/{id}",
     responses(
-        (status = 200, description = "Patched"),
+        (status = 200, description = "Patched", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Review rating with id: '1234' was successfully patched".to_string())]))),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
         (status = 400, description = "Field not allowed", body = AppError, example = json!(AppError::FieldNotAllowed.to_string())),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))

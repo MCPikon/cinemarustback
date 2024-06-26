@@ -10,9 +10,24 @@ ENV PKG_CONFIG_ALLOW_CROSS=1
 RUN cargo build --target x86_64-unknown-linux-musl --release
 
 FROM alpine:latest
+ARG APP=/usr/src/app
 
 RUN apk --no-cache add ca-certificates 
-COPY --from=builder /target/x86_64-unknown-linux-musl/release/cinemarustback .
 
 EXPOSE 8080
-CMD ["/cinemarustback"]
+
+# Creates a non-root user
+ENV TZ=Etc/UTC \
+    APP_USER=appuser
+
+RUN addgroup -S $APP_USER \
+    && adduser -S -g $APP_USER $APP_USER
+
+COPY --from=builder /target/x86_64-unknown-linux-musl/release/cinemarustback ${APP}/.
+
+RUN chown -R $APP_USER:$APP_USER ${APP}
+
+USER $APP_USER
+WORKDIR ${APP}
+
+CMD ["./cinemarustback"]

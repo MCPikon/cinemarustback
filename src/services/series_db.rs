@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use futures_util::{StreamExt, TryStreamExt};
+use lazy_static::lazy_static;
 use log::{error, info, warn};
 use mongodb::{
     bson::{doc, oid::ObjectId, to_bson, Regex},
@@ -14,6 +15,10 @@ use crate::{
     error::AppError,
     models::series::{Series, SeriesRequest, SeriesResponse},
 };
+
+lazy_static! {
+    static ref RE_IMDB_ID: regex::Regex = regex::Regex::new(r"^tt\d+$").unwrap();
+}
 
 impl Database {
     pub async fn find_all_series(
@@ -135,8 +140,7 @@ impl Database {
 
     pub async fn find_series_by_imdb_id(&self, imdb_id: &str) -> Result<Series, AppError> {
         info!("GET series /findByImdbId with id: '{}' executed", imdb_id);
-        let re = regex::Regex::new(r"^tt\d+$").unwrap();
-        if !re.is_match(imdb_id) {
+        if !RE_IMDB_ID.is_match(imdb_id) {
             error!(
                 "Error in series /findByImdbId with imdbId: '{}' [{}]",
                 imdb_id,
@@ -284,8 +288,7 @@ impl Database {
                 return Err(AppError::InternalServerError);
             }
         };
-        let re = regex::Regex::new(r"^tt\d+$").unwrap();
-        if !re.is_match(&series.imdb_id) {
+        if !RE_IMDB_ID.is_match(&series.imdb_id) {
             error!(
                 "Error in series /update with id: '{}' [{}]",
                 id,
@@ -390,8 +393,7 @@ impl Database {
             }
         };
         if field == "imdbId" {
-            let re = regex::Regex::new(r"^tt\d+$").unwrap();
-            if !re.is_match(val) {
+            if !RE_IMDB_ID.is_match(val) {
                 error!(
                     "Error in series /patch with id: '{}' [{}]",
                     id,

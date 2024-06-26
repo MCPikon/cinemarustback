@@ -5,15 +5,19 @@ use crate::{
     models::review::{Review, ReviewResponse, ReviewUpdate},
 };
 use futures_util::{StreamExt, TryStreamExt};
+use lazy_static::lazy_static;
 use log::{error, info, warn};
 use mongodb::{
     bson::{doc, oid::ObjectId, to_bson, DateTime},
     options::{CountOptions, FindOptions},
-    results::{InsertOneResult, UpdateResult},
 };
 use serde_json::{Map, Value};
 
 use super::db::Database;
+
+lazy_static! {
+    static ref RE_IMDB_ID: regex::Regex = regex::Regex::new(r"^tt\d+$").unwrap();
+}
 
 impl Database {
     pub async fn find_all_reviews(
@@ -106,8 +110,7 @@ impl Database {
             imdb_id
         );
 
-        let re = regex::Regex::new(r"^tt\d+$").unwrap();
-        if !re.is_match(imdb_id) {
+        if !RE_IMDB_ID.is_match(imdb_id) {
             error!(
                 "Error in reviews /findAllByImdbId with imdbId: '{}' [{}]",
                 imdb_id,
@@ -204,12 +207,11 @@ impl Database {
         &self,
         review: Review,
         imdb_id: &str,
-    ) -> Result<InsertOneResult, AppError> {
+    ) -> Result<Map<String, Value>, AppError> {
         info!("POST reviews /new executed");
-        let result: InsertOneResult;
+        let mut map_result: Map<String, Value> = Map::new();
 
-        let re = regex::Regex::new(r"^tt\d+$").unwrap();
-        if !re.is_match(imdb_id) {
+        if !RE_IMDB_ID.is_match(imdb_id) {
             error!(
                 "Error in reviews /new with imdbId: '{}' [{}]",
                 imdb_id,
@@ -238,7 +240,7 @@ impl Database {
                     return Err(AppError::InternalServerError);
                 }
             };
-            result = self
+            let result = self
                 .reviews
                 .insert_one(review, None)
                 .await
@@ -260,6 +262,17 @@ impl Database {
                     )
                     .as_str(),
                 );
+
+            map_result.insert(
+                "message".to_string(),
+                Value::String(
+                    format!(
+                        "Review was successfully created. (id: '{}')",
+                        result.inserted_id.as_object_id().unwrap().to_string()
+                    )
+                    .to_string(),
+                ),
+            );
         } else if self.series_exists_by_imdb_id(imdb_id).await? {
             let series = match self.series.find_one(doc! {"imdbId": imdb_id}, None).await {
                 Ok(Some(series)) => series,
@@ -280,7 +293,7 @@ impl Database {
                     return Err(AppError::InternalServerError);
                 }
             };
-            result = self
+            let result = self
                 .reviews
                 .insert_one(review, None)
                 .await
@@ -302,6 +315,17 @@ impl Database {
                     )
                     .as_str(),
                 );
+
+            map_result.insert(
+                "message".to_string(),
+                Value::String(
+                    format!(
+                        "Review was successfully created. (id: '{}')",
+                        result.inserted_id.as_object_id().unwrap().to_string()
+                    )
+                    .to_string(),
+                ),
+            );
         } else {
             error!(
                 "Error finding movie and series in reviews /findAllByImdbId with imdbId: '{}' [{}]",
@@ -310,7 +334,7 @@ impl Database {
             );
             return Err(AppError::NotExists);
         }
-        Ok(result)
+        Ok(map_result)
     }
 
     pub async fn movie_exists_by_review_id(
@@ -440,7 +464,7 @@ impl Database {
         &self,
         id: &str,
         review: ReviewUpdate,
-    ) -> Result<UpdateResult, AppError> {
+    ) -> Result<Map<String, Value>, AppError> {
         info!("UPDATE reviews /update with id: '{}' executed", id);
         let obj_id = ObjectId::from_str(id)?;
         match self.reviews.find_one(doc! { "_id": obj_id }, None).await {
@@ -478,7 +502,16 @@ impl Database {
             .await
             .ok()
             .expect(format!("Error updating review with id: '{}'", id).as_str());
-        Ok(result)
+        let mut map_result: Map<String, Value> = Map::new();
+        map_result.insert(
+            "message".to_string(),
+            Value::String(if result.modified_count != 0 {
+                format!("Review with id: '{}' was successfully updated", id)
+            } else {
+                "Fields have the same value, no update was performed".to_string()
+            }),
+        );
+        Ok(map_result)
     }
 
     pub async fn patch_review(
@@ -486,7 +519,7 @@ impl Database {
         id: &str,
         field: &str,
         val: &str,
-    ) -> Result<UpdateResult, AppError> {
+    ) -> Result<Map<String, Value>, AppError> {
         info!("PATCH reviews /patch with id: '{}' executed", id);
         let fields_vec: Vec<&str> = vec!["title", "rating", "body"];
         let obj_id = ObjectId::from_str(id)?;
@@ -531,6 +564,18 @@ impl Database {
             .await
             .ok()
             .expect(format!("Error patching reviews with id: '{}'", id).as_str());
-        Ok(result)
+        let mut map_result: Map<String, Value> = Map::new();
+        map_result.insert(
+            "message".to_string(),
+            Value::String(if result.modified_count != 0 {
+                format!(
+                    "Review {} with id: '{}' was successfully patched",
+                    field, id
+                )
+            } else {
+                "Field has the same value, no patch was performed".to_string()
+            }),
+        );
+        Ok(map_result)
     }
 }
