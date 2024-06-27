@@ -58,6 +58,7 @@ pub async fn get_series(
     path = "/api/v1/series/findById/{id}",
     responses(
         (status = 200, description = "Fetch Series by id", body = SeriesDoc),
+        (status = 400, description = "Cannot parse ObjectId", body = AppError, example = json!(AppError::CannotParseObjId.to_string())),
         (status = 404, description = "Not Found", body = AppError, example = json!(AppError::NotFound.to_string())),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
@@ -153,6 +154,7 @@ pub async fn create_series(
     path = "/api/v1/series/delete/{id}",
     responses(
         (status = 200, description = "Deleted", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Series with id: '1234' was successfully deleted".to_string())]))),
+        (status = 400, description = "Cannot parse ObjectId", body = AppError, example = json!(AppError::CannotParseObjId.to_string())),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
@@ -179,9 +181,9 @@ pub async fn delete_series_by_id(
     responses(
         (status = 200, description = "Updated", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Series with id: '1234' was successfully updated".to_string())]))),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
-        (status = 400, description = "Validation Error, Wrong ImdbId or ImdbId in use", body = AppError, examples(
+        (status = 400, description = "Validation Error, Cannot parse ObjectId or ImdbId in use", body = AppError, examples(
             ("ValidationError" = (value = json!(AppError::ValidationAppError("title: The series title cannot be empty".to_string()).to_string()))),
-            ("Wrong ImdbId" = (value = json!(AppError::WrongImdbId.to_string()))),
+            ("Cannot parse ObjectId" = (value = json!(AppError::CannotParseObjId.to_string()))),
             ("ImdbId in use" = (value = json!(AppError::ImdbIdInUse.to_string())))
         )),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
@@ -219,8 +221,9 @@ pub struct PatchParams {
     responses(
         (status = 200, description = "Patched", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Series title with id: '1234' was successfully patched".to_string())]))),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
-        (status = 400, description = "Field not allowed, Wrong ImdbId or ImdbId in use", body = AppError, examples(
+        (status = 400, description = "Field not allowed, Cannot parse ObjectId, Wrong ImdbId or ImdbId in use", body = AppError, examples(
             ("Field not allowed" = (value = json!(AppError::FieldNotAllowed.to_string()))),
+            ("Cannot parse ObjectId" = (value = json!(AppError::CannotParseObjId.to_string()))),
             ("Wrong ImdbId" = (value = json!(AppError::WrongImdbId.to_string()))),
             ("ImdbId in use" = (value = json!(AppError::ImdbIdInUse.to_string())))
         )),

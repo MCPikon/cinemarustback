@@ -211,15 +211,6 @@ impl Database {
         info!("POST reviews /new executed");
         let mut map_result: Map<String, Value> = Map::new();
 
-        if !RE_IMDB_ID.is_match(imdb_id) {
-            error!(
-                "Error in reviews /new with imdbId: '{}' [{}]",
-                imdb_id,
-                AppError::WrongImdbId.to_string()
-            );
-            return Err(AppError::WrongImdbId);
-        }
-
         if self.movie_exists_by_imdb_id(imdb_id).await? {
             let movie = match self.movies.find_one(doc! {"imdbId": imdb_id}, None).await {
                 Ok(Some(movie)) => movie,
@@ -465,7 +456,7 @@ impl Database {
         id: &str,
         review: ReviewUpdate,
     ) -> Result<Map<String, Value>, AppError> {
-        info!("UPDATE reviews /update with id: '{}' executed", id);
+        info!("PUT reviews /update with id: '{}' executed", id);
         let obj_id = ObjectId::from_str(id)?;
         match self.reviews.find_one(doc! { "_id": obj_id }, None).await {
             Ok(Some(_)) => {}

@@ -266,7 +266,7 @@ impl Database {
         id: &str,
         series: SeriesRequest,
     ) -> Result<Map<String, Value>, AppError> {
-        info!("UPDATE series /update with id: '{}' executed", id);
+        info!("PUT series /update with id: '{}' executed", id);
         let obj_id = ObjectId::from_str(id)?;
         let series_founded: Series = match self.series.find_one(doc! { "_id": obj_id }, None).await
         {
@@ -288,14 +288,6 @@ impl Database {
                 return Err(AppError::InternalServerError);
             }
         };
-        if !RE_IMDB_ID.is_match(&series.imdb_id) {
-            error!(
-                "Error in series /update with id: '{}' [{}]",
-                id,
-                AppError::WrongImdbId.to_string()
-            );
-            return Err(AppError::WrongImdbId);
-        }
         let exists_imdb_id_movie: bool = self.movie_exists_by_imdb_id(&series.imdb_id).await?;
         let exists_imdb_id_series: bool = self.series_exists_by_imdb_id(&series.imdb_id).await?;
         if (exists_imdb_id_movie || exists_imdb_id_series)

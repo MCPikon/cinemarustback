@@ -1,8 +1,15 @@
 use std::error::Error;
 
+use lazy_static::lazy_static;
 use mongodb::bson::{oid::ObjectId, DateTime};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use validator::Validate;
+
+lazy_static! {
+    static ref RE_IMDB_ID: Regex = Regex::new(r"^tt\d+$").unwrap();
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -47,19 +54,29 @@ pub struct ReviewResponseDoc {
     pub updated_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, Validate)]
 #[serde(rename_all = "camelCase")]
 pub struct ReviewRequest {
+    #[validate(length(min = 1, message = "The review title cannot be empty"))]
     pub title: String,
+    #[validate(range(min = 0, max = 5, message = "The rating must be between 0 and 5"))]
     pub rating: u32,
+    #[validate(length(min = 1, message = "The review body cannot be empty"))]
     pub body: String,
+    #[validate(regex(
+        path = *RE_IMDB_ID,
+        message = "The imdbId must match the following format: 'tt0000'"
+    ))]
     pub imdb_id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, Validate)]
 pub struct ReviewUpdate {
+    #[validate(length(min = 1, message = "The review title cannot be empty"))]
     pub title: String,
+    #[validate(range(min = 0, max = 5, message = "The rating must be between 0 and 5"))]
     pub rating: u32,
+    #[validate(length(min = 1, message = "The review body cannot be empty"))]
     pub body: String,
 }
 

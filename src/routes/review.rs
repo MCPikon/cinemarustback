@@ -7,6 +7,7 @@ use actix_web::{
 };
 use serde::Deserialize;
 use utoipa::{IntoParams, ToSchema};
+use validator::Validate;
 
 use crate::{
     error::AppError,
@@ -79,6 +80,7 @@ pub async fn get_reviews_by_imdb_id(
     path = "/api/v1/reviews/findById/{id}",
     responses(
         (status = 200, description = "Fetch Review by id", body = ReviewResponseDoc),
+        (status = 400, description = "Cannot parse ObjectId", body = AppError, example = json!(AppError::CannotParseObjId.to_string())),
         (status = 404, description = "Not Found", body = AppError, example = json!(AppError::NotFound.to_string())),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
@@ -104,7 +106,7 @@ pub async fn get_review_by_id(
     path = "/api/v1/reviews/new",
     responses(
         (status = 201, description = "Created", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Review was successfully created. (id: '1234')".to_string())]))),
-        (status = 400, description = "Wrong ImdbId", body = AppError, example = json!(AppError::WrongImdbId.to_string())),
+        (status = 400, description = "ValidationError", body = AppError, example = json!(AppError::ValidationAppError("title: The review title cannot be empty".to_string()).to_string())),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
@@ -116,6 +118,7 @@ pub async fn create_review(
     db: Data<Database>,
     request: Json<ReviewRequest>,
 ) -> Result<HttpResponse, AppError> {
+    request.validate()?;
     match db
         .create_review(
             Review::try_from(ReviewRequest {
@@ -139,6 +142,7 @@ pub async fn create_review(
     path = "/api/v1/reviews/delete/{id}",
     responses(
         (status = 200, description = "Deleted", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Review with id: '1234' was successfully deleted".to_string())]))),
+        (status = 400, description = "Cannot parse ObjectId", body = AppError, example = json!(AppError::CannotParseObjId.to_string())),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
@@ -164,6 +168,10 @@ pub async fn delete_review_by_id(
     path = "/api/v1/reviews/update/{id}",
     responses(
         (status = 200, description = "Updated", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Review with id: '1234' was successfully updated".to_string())]))),
+        (status = 400, description = "Cannot parse ObjectId or Validation Error", body = AppError, examples(
+            ("Cannot parse ObjectId" = (value = json!(AppError::CannotParseObjId.to_string()))),
+            ("ValidationError" = (value = json!(AppError::ValidationAppError("title: The review title cannot be empty".to_string()).to_string())))
+        )),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
@@ -181,6 +189,7 @@ pub async fn update_review_by_id(
 ) -> Result<HttpResponse, AppError> {
     let id = path.into_inner();
 
+    review.validate()?;
     match db.update_review(id.as_str(), review.0).await {
         Ok(res) => Ok(HttpResponse::Ok().json(res)),
         Err(err) => Err(err),
@@ -199,7 +208,10 @@ pub struct PatchParams {
     responses(
         (status = 200, description = "Patched", body = String, content_type = "application/json", example = json!(HashMap::from([("message".to_string(), "Review rating with id: '1234' was successfully patched".to_string())]))),
         (status = 404, description = "Not Exists", body = AppError, example = json!(AppError::NotExists.to_string())),
-        (status = 400, description = "Field not allowed", body = AppError, example = json!(AppError::FieldNotAllowed.to_string())),
+        (status = 400, description = "Cannot parse ObjectId or Field not allowed", body = AppError, examples(
+            ("Cannot parse ObjectId" = (value = json!(AppError::CannotParseObjId.to_string()))),
+            ("Field not allowed" = (value = json!(AppError::FieldNotAllowed.to_string())))
+        )),
         (status = 500, description = "Internal Server Error", body = AppError, example = json!(AppError::InternalServerError.to_string()))
     ),
     params(
