@@ -9,9 +9,9 @@ authors = [
 ]
 
 [dependencies]
-actix-web = "4.7.0"
+actix-web = "4.8.0"
 chrono = "0.4.38"
-derive_more = "0.99.17"
+derive_more = "0.99.18"
 dotenv = "0.15.0"
 env_logger = "0.11.3"
 futures-util = "0.3.30"
@@ -20,7 +20,7 @@ log = "0.4.21"
 mongodb = { version = "2.8.2", features = ["bson-chrono-0_4"] }
 regex = "1.10.5"
 serde = "1.0.203"
-serde_json = "1.0.117"
+serde_json = "1.0.118"
 utoipa = { version = "4.2.3", features = ["actix_extras", "chrono"] }
 utoipa-redoc = { version = "4.0.0", features = ["actix-web"] }
 utoipa-scalar = { version = "0.1.0", features = ["actix-web"] }
