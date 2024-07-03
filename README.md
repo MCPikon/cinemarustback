@@ -27,6 +27,7 @@ Este proyecto realiza un CRUD (Crear, Obtener, Modificar y Eliminar) de Películ
 * Rust (2021 Edition)
 * Actix Web 4.8.0
 * _**Dependencias (Crates):**_
+    * async-trait (0.1.80)
     * chrono (0.4.38)
     * derive_more (0.99.18)
     * dotenv (0.15.0)
@@ -43,6 +44,7 @@ Este proyecto realiza un CRUD (Crear, Obtener, Modificar y Eliminar) de Películ
     * utoipa-scalar (0.1.0)
     * utoipa-swagger-ui (7.1.0)
     * validator (0.18.1)
+    * mockall (0.12.1)
 
 ## 📄 Licencia
 

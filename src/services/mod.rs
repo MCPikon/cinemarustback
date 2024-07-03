@@ -1,4 +1,4 @@
 pub mod db;
-mod movie_db;
-mod review_db;
-mod series_db;
+pub mod movie_repo;
+pub mod review_repo;
+pub mod series_repo;

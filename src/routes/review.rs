@@ -12,7 +12,7 @@ use validator::Validate;
 use crate::{
     error::AppError,
     models::review::{Review, ReviewRequest, ReviewUpdate},
-    services::db::Database,
+    services::{db::Database, review_repo::ReviewRepository},
 };
 
 #[derive(Debug, Deserialize, IntoParams)]

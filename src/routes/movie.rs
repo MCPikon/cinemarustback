@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     error::AppError,
     models::movie::{Movie, MovieRequest},
-    services::db::Database,
+    services::{db::Database, movie_repo::MovieRepository},
 };
 use actix_web::{
     delete, get, patch, post, put,

@@ -4,6 +4,7 @@ use crate::{
     error::AppError,
     models::review::{Review, ReviewResponse, ReviewUpdate},
 };
+use async_trait::async_trait;
 use futures_util::{StreamExt, TryStreamExt};
 use lazy_static::lazy_static;
 use log::{error, info, warn};
@@ -13,14 +14,54 @@ use mongodb::{
 };
 use serde_json::{Map, Value};
 
-use super::db::Database;
+use super::{db::Database, movie_repo::MovieRepository, series_repo::SeriesRepository};
 
 lazy_static! {
     static ref RE_IMDB_ID: regex::Regex = regex::Regex::new(r"^tt\d+$").unwrap();
 }
 
-impl Database {
-    pub async fn find_all_reviews(
+#[async_trait]
+pub trait ReviewRepository {
+    async fn find_all_reviews(
+        &self,
+        page: Option<u32>,
+        size: Option<u32>,
+    ) -> Result<Map<String, Value>, AppError>;
+    async fn find_all_reviews_by_imdb_id(
+        &self,
+        imdb_id: &str,
+    ) -> Result<Vec<ReviewResponse>, AppError>;
+    async fn find_review_by_id(&self, id: &str) -> Result<ReviewResponse, AppError>;
+    async fn create_review(
+        &self,
+        review: Review,
+        imdb_id: &str,
+    ) -> Result<Map<String, Value>, AppError>;
+    async fn movie_exists_by_review_id(
+        &self,
+        review_id: ObjectId,
+    ) -> Result<(bool, Option<ObjectId>), AppError>;
+    async fn series_exists_by_review_id(
+        &self,
+        review_id: ObjectId,
+    ) -> Result<(bool, Option<ObjectId>), AppError>;
+    async fn delete_review(&self, id: &str) -> Result<Map<String, Value>, AppError>;
+    async fn update_review(
+        &self,
+        id: &str,
+        review: ReviewUpdate,
+    ) -> Result<Map<String, Value>, AppError>;
+    async fn patch_review(
+        &self,
+        id: &str,
+        field: &str,
+        val: &str,
+    ) -> Result<Map<String, Value>, AppError>;
+}
+
+#[async_trait]
+impl ReviewRepository for Database {
+    async fn find_all_reviews(
         &self,
         page: Option<u32>,
         size: Option<u32>,
@@ -101,7 +142,7 @@ impl Database {
         Ok(result_map)
     }
 
-    pub async fn find_all_reviews_by_imdb_id(
+    async fn find_all_reviews_by_imdb_id(
         &self,
         imdb_id: &str,
     ) -> Result<Vec<ReviewResponse>, AppError> {
@@ -178,7 +219,7 @@ impl Database {
         Ok(review_list)
     }
 
-    pub async fn find_review_by_id(&self, id: &str) -> Result<ReviewResponse, AppError> {
+    async fn find_review_by_id(&self, id: &str) -> Result<ReviewResponse, AppError> {
         info!("GET reviews /findById with id: '{}' executed", id);
         let obj_id = ObjectId::from_str(id)?;
         let review: ReviewResponse = match self.reviews.find_one(doc! {"_id": obj_id}, None).await {
@@ -203,7 +244,7 @@ impl Database {
         Ok(review)
     }
 
-    pub async fn create_review(
+    async fn create_review(
         &self,
         review: Review,
         imdb_id: &str,
@@ -328,7 +369,7 @@ impl Database {
         Ok(map_result)
     }
 
-    pub async fn movie_exists_by_review_id(
+    async fn movie_exists_by_review_id(
         &self,
         review_id: ObjectId,
     ) -> Result<(bool, Option<ObjectId>), AppError> {
@@ -351,7 +392,7 @@ impl Database {
         Ok(res)
     }
 
-    pub async fn series_exists_by_review_id(
+    async fn series_exists_by_review_id(
         &self,
         review_id: ObjectId,
     ) -> Result<(bool, Option<ObjectId>), AppError> {
@@ -374,7 +415,7 @@ impl Database {
         Ok(res)
     }
 
-    pub async fn delete_review(&self, id: &str) -> Result<Map<String, Value>, AppError> {
+    async fn delete_review(&self, id: &str) -> Result<Map<String, Value>, AppError> {
         info!("DELETE reviews /delete with id: '{}' executed", id);
         let obj_id = ObjectId::from_str(id)?;
         let del_result = match self.reviews.delete_one(doc! {"_id": obj_id}, None).await {
@@ -451,7 +492,7 @@ impl Database {
         Ok(map_result)
     }
 
-    pub async fn update_review(
+    async fn update_review(
         &self,
         id: &str,
         review: ReviewUpdate,
@@ -505,7 +546,7 @@ impl Database {
         Ok(map_result)
     }
 
-    pub async fn patch_review(
+    async fn patch_review(
         &self,
         id: &str,
         field: &str,

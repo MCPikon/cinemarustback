@@ -12,7 +12,7 @@ use validator::Validate;
 use crate::{
     error::AppError,
     models::series::{Series, SeriesRequest},
-    services::db::Database,
+    services::{db::Database, series_repo::SeriesRepository},
 };
 
 #[derive(Debug, Deserialize, IntoParams)]

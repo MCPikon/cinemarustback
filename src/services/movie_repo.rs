@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use async_trait::async_trait;
 use futures_util::{StreamExt, TryStreamExt};
 use lazy_static::lazy_static;
 use log::{error, info, warn};
@@ -14,14 +15,42 @@ use crate::{
     models::movie::{Movie, MovieRequest, MovieResponse},
 };
 
-use super::db::Database;
+use super::{db::Database, series_repo::SeriesRepository};
 
 lazy_static! {
     static ref RE_IMDB_ID: regex::Regex = regex::Regex::new(r"^tt\d+$").unwrap();
 }
 
-impl Database {
-    pub async fn find_all_movies(
+#[cfg_attr(test, mockall::automock)]
+#[async_trait]
+pub trait MovieRepository {
+    async fn find_all_movies(
+        &self,
+        title: Option<String>,
+        page: Option<u32>,
+        size: Option<u32>,
+    ) -> Result<Map<String, Value>, AppError>;
+    async fn find_movie_by_id(&self, id: &str) -> Result<Movie, AppError>;
+    async fn find_movie_by_imdb_id(&self, imdb_id: &str) -> Result<Movie, AppError>;
+    async fn create_movie(&self, movie: Movie) -> Result<Map<String, Value>, AppError>;
+    async fn delete_movie(&self, id: &str) -> Result<Map<String, Value>, AppError>;
+    async fn movie_exists_by_imdb_id(&self, imdb_id: &str) -> Result<bool, AppError>;
+    async fn update_movie(
+        &self,
+        id: &str,
+        movie: MovieRequest,
+    ) -> Result<Map<String, Value>, AppError>;
+    async fn patch_movie(
+        &self,
+        id: &str,
+        field: &str,
+        val: &str,
+    ) -> Result<Map<String, Value>, AppError>;
+}
+
+#[async_trait]
+impl MovieRepository for Database {
+    async fn find_all_movies(
         &self,
         title: Option<String>,
         page: Option<u32>,
@@ -113,7 +142,7 @@ impl Database {
         Ok(result_map)
     }
 
-    pub async fn find_movie_by_id(&self, id: &str) -> Result<Movie, AppError> {
+    async fn find_movie_by_id(&self, id: &str) -> Result<Movie, AppError> {
         info!("GET movies /findById with id: '{}' executed", id);
         let obj_id = ObjectId::from_str(id)?;
         let movie: Movie = match self.movies.find_one(doc! {"_id": obj_id}, None).await {
@@ -138,7 +167,7 @@ impl Database {
         Ok(movie)
     }
 
-    pub async fn find_movie_by_imdb_id(&self, imdb_id: &str) -> Result<Movie, AppError> {
+    async fn find_movie_by_imdb_id(&self, imdb_id: &str) -> Result<Movie, AppError> {
         info!("GET movies /findByImdbId with id: '{}' executed", imdb_id);
         if !RE_IMDB_ID.is_match(imdb_id) {
             error!(
@@ -171,7 +200,7 @@ impl Database {
         Ok(movie)
     }
 
-    pub async fn create_movie(&self, movie: Movie) -> Result<Map<String, Value>, AppError> {
+    async fn create_movie(&self, movie: Movie) -> Result<Map<String, Value>, AppError> {
         info!("POST movies /new executed");
         if self
             .movie_exists_by_imdb_id(movie.imdb_id.clone().as_str())
@@ -214,7 +243,7 @@ impl Database {
         Ok(map_result)
     }
 
-    pub async fn delete_movie(&self, id: &str) -> Result<Map<String, Value>, AppError> {
+    async fn delete_movie(&self, id: &str) -> Result<Map<String, Value>, AppError> {
         info!("DELETE movies /delete with id: '{}' executed", id);
         let obj_id = ObjectId::from_str(id)?;
         let del_result = match self.movies.delete_one(doc! {"_id": obj_id}, None).await {
@@ -247,7 +276,7 @@ impl Database {
         Ok(map_result)
     }
 
-    pub async fn movie_exists_by_imdb_id(&self, imdb_id: &str) -> Result<bool, AppError> {
+    async fn movie_exists_by_imdb_id(&self, imdb_id: &str) -> Result<bool, AppError> {
         let exists: bool = match self.movies.find_one(doc! { "imdbId": imdb_id }, None).await {
             Ok(Some(_)) => true,
             Ok(None) => false,
@@ -263,7 +292,7 @@ impl Database {
         Ok(exists)
     }
 
-    pub async fn update_movie(
+    async fn update_movie(
         &self,
         id: &str,
         movie: MovieRequest,
@@ -333,7 +362,7 @@ impl Database {
         Ok(map_result)
     }
 
-    pub async fn patch_movie(
+    async fn patch_movie(
         &self,
         id: &str,
         field: &str,

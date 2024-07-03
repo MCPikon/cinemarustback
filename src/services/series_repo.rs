@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use async_trait::async_trait;
 use futures_util::{StreamExt, TryStreamExt};
 use lazy_static::lazy_static;
 use log::{error, info, warn};
@@ -9,7 +10,7 @@ use mongodb::{
 };
 use serde_json::{Map, Value};
 
-use super::db::Database;
+use super::{db::Database, movie_repo::MovieRepository};
 
 use crate::{
     error::AppError,
@@ -20,8 +21,35 @@ lazy_static! {
     static ref RE_IMDB_ID: regex::Regex = regex::Regex::new(r"^tt\d+$").unwrap();
 }
 
-impl Database {
-    pub async fn find_all_series(
+#[async_trait]
+pub trait SeriesRepository {
+    async fn find_all_series(
+        &self,
+        title: Option<String>,
+        page: Option<u32>,
+        size: Option<u32>,
+    ) -> Result<Map<String, Value>, AppError>;
+    async fn find_series_by_id(&self, id: &str) -> Result<Series, AppError>;
+    async fn find_series_by_imdb_id(&self, imdb_id: &str) -> Result<Series, AppError>;
+    async fn create_series(&self, series: Series) -> Result<Map<String, Value>, AppError>;
+    async fn delete_series(&self, id: &str) -> Result<Map<String, Value>, AppError>;
+    async fn series_exists_by_imdb_id(&self, imdb_id: &str) -> Result<bool, AppError>;
+    async fn update_series(
+        &self,
+        id: &str,
+        series: SeriesRequest,
+    ) -> Result<Map<String, Value>, AppError>;
+    async fn patch_series(
+        &self,
+        id: &str,
+        field: &str,
+        val: &str,
+    ) -> Result<Map<String, Value>, AppError>;
+}
+
+#[async_trait]
+impl SeriesRepository for Database {
+    async fn find_all_series(
         &self,
         title: Option<String>,
         page: Option<u32>,
@@ -113,7 +141,7 @@ impl Database {
         Ok(result_map)
     }
 
-    pub async fn find_series_by_id(&self, id: &str) -> Result<Series, AppError> {
+    async fn find_series_by_id(&self, id: &str) -> Result<Series, AppError> {
         info!("GET series /findById with id: '{}' executed", id);
         let obj_id = ObjectId::from_str(id)?;
         let series: Series = match self.series.find_one(doc! {"_id": obj_id}, None).await {
@@ -138,7 +166,7 @@ impl Database {
         Ok(series)
     }
 
-    pub async fn find_series_by_imdb_id(&self, imdb_id: &str) -> Result<Series, AppError> {
+    async fn find_series_by_imdb_id(&self, imdb_id: &str) -> Result<Series, AppError> {
         info!("GET series /findByImdbId with id: '{}' executed", imdb_id);
         if !RE_IMDB_ID.is_match(imdb_id) {
             error!(
@@ -171,7 +199,7 @@ impl Database {
         Ok(series)
     }
 
-    pub async fn create_series(&self, series: Series) -> Result<Map<String, Value>, AppError> {
+    async fn create_series(&self, series: Series) -> Result<Map<String, Value>, AppError> {
         info!("POST series /new executed");
         if self
             .series_exists_by_imdb_id(series.imdb_id.clone().as_str())
@@ -212,7 +240,7 @@ impl Database {
         Ok(map_result)
     }
 
-    pub async fn delete_series(&self, id: &str) -> Result<Map<String, Value>, AppError> {
+    async fn delete_series(&self, id: &str) -> Result<Map<String, Value>, AppError> {
         info!("DELETE series /delete with id: '{}' executed", id);
         let obj_id = ObjectId::from_str(id)?;
         let del_result = match self.series.delete_one(doc! {"_id": obj_id}, None).await {
@@ -245,7 +273,7 @@ impl Database {
         Ok(map_result)
     }
 
-    pub async fn series_exists_by_imdb_id(&self, imdb_id: &str) -> Result<bool, AppError> {
+    async fn series_exists_by_imdb_id(&self, imdb_id: &str) -> Result<bool, AppError> {
         let exists: bool = match self.series.find_one(doc! { "imdbId": imdb_id }, None).await {
             Ok(Some(_)) => true,
             Ok(None) => false,
@@ -261,7 +289,7 @@ impl Database {
         Ok(exists)
     }
 
-    pub async fn update_series(
+    async fn update_series(
         &self,
         id: &str,
         series: SeriesRequest,
@@ -335,7 +363,7 @@ impl Database {
         Ok(map_result)
     }
 
-    pub async fn patch_series(
+    async fn patch_series(
         &self,
         id: &str,
         field: &str,

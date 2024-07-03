@@ -2,6 +2,8 @@ mod error;
 mod models;
 mod routes;
 mod services;
+#[cfg(test)]
+mod tests;
 
 use std::{collections::HashMap, net::Ipv4Addr};
 
@@ -34,17 +36,17 @@ use utoipa_redoc::{Redoc, Servable};
 use utoipa_scalar::{Scalar, Servable as ScalarServable};
 use utoipa_swagger_ui::SwaggerUi;
 
-/// Hello
+/// Ping
 #[utoipa::path(
-    path = "/api/v1/",
+    path = "/api/v1/ping",
     responses(
-        (status = 200, description = "Hello", body = String, example = json!("Hello there 👋, the CinemaRustBack API is running!!")),
+        (status = 200, description = "Ping", body = String, example = json!("Pong.")),
     ),
     tag = "General"
 )]
-#[get("/")]
-async fn hello() -> impl Responder {
-    HttpResponse::Ok().json("Hello there 👋, the CinemaRustBack API is running!!")
+#[get("/ping")]
+async fn ping() -> impl Responder {
+    HttpResponse::Ok().json("Pong.")
 }
 
 /// Health check
@@ -79,7 +81,7 @@ async fn main() -> std::io::Result<()> {
             (url = "http://localhost:8080", description = "Server URL in Development environment")
         ),
         paths(
-            hello,
+            ping,
             health,
             routes::movie::get_movies,
             routes::movie::get_movie_by_id,
@@ -104,9 +106,7 @@ async fn main() -> std::io::Result<()> {
             routes::review::patch_review_by_id
         ),
         components(
-            schemas(error::AppError, models::movie::MovieDoc, models::movie::MovieRequest, models::movie::MovieResponse, routes::movie::PatchParams, 
-                models::series::SeriesDoc, models::series::SeriesRequest, models::series::SeriesResponse, models::series::Season, models::series::Episode,
-                models::review::ReviewResponseDoc, models::review::ReviewRequest, models::review::ReviewUpdate)
+            schemas(error::AppError, models::movie::MovieDoc, models::movie::MovieRequest, models::movie::MovieResponse, routes::movie::PatchParams, models::series::SeriesDoc, models::series::SeriesRequest, models::series::SeriesResponse, models::series::Season, models::series::Episode, models::review::ReviewResponseDoc, models::review::ReviewRequest, models::review::ReviewUpdate)
         ),
         tags(
             (name = "General", description = "Some endpoints for general purposes."),
@@ -143,7 +143,7 @@ async fn main() -> std::io::Result<()> {
 
 pub fn routes_config(conf: &mut ServiceConfig) {
     let scope = web::scope("/api/v1")
-        .service(hello)
+        .service(ping)
         .service(health)
         .service(
             web::scope("/movies")
