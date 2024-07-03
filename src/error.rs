@@ -5,7 +5,7 @@ use mongodb::bson;
 use utoipa::ToSchema;
 use validator::ValidationErrors;
 
-#[derive(Debug, Display, Error, ToSchema)]
+#[derive(Debug, Display, PartialEq, Error, ToSchema)]
 pub enum AppError {
     #[display(fmt = "Empty List")]
     Empty,

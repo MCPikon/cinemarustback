@@ -1,24 +1,15 @@
 use actix_web::{
-    body::to_bytes,
     http::{header::ContentType, StatusCode},
     test, App,
 };
-use mockall::predicate::*;
-use models::movie::MovieResponse;
+use error::AppError;
+use models::movie::{Movie, MovieResponse};
+use mongodb::bson::oid::ObjectId;
 use services::movie_repo::{MockMovieRepository, MovieRepository};
-use web::Bytes;
 
 use super::*;
 
-trait BodyTest {
-    fn as_str(&self) -> &str;
-}
-
-impl BodyTest for Bytes {
-    fn as_str(&self) -> &str {
-        std::str::from_utf8(self).unwrap()
-    }
-}
+// General Endpoints
 
 #[actix_web::test]
 async fn test_ping_ok() {
@@ -29,8 +20,8 @@ async fn test_ping_ok() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert!(resp.status().is_success());
-    let body = to_bytes(resp.into_body()).await.unwrap();
-    assert_eq!(body.as_str(), "\"Pong.\"")
+    let body = test::read_body(resp).await;
+    assert_eq!(String::from_utf8_lossy(&body), "\"Pong.\"")
 }
 
 #[actix_web::test]
@@ -42,19 +33,26 @@ async fn test_health_ok() {
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), StatusCode::MULTI_STATUS);
-    let body = to_bytes(resp.into_body()).await.unwrap();
-    let expected_res = HashMap::from([
-        (
-            "message".to_string(),
-            "All systems working correctly.".to_string(),
-        ),
-        ("status".to_string(), "UP".to_string()),
-    ]);
-    assert_eq!(body.as_str(), serde_json::to_string(&expected_res).unwrap())
+    let body = test::read_body(resp).await;
+    let mut expected_res = Map::new();
+    expected_res.insert(
+        "status".to_string(),
+        serde_json::Value::String("UP".to_string()),
+    );
+    expected_res.insert(
+        "message".to_string(),
+        serde_json::Value::String("All systems working correctly.".to_string()),
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&body),
+        serde_json::to_string(&expected_res).unwrap()
+    )
 }
 
+// Movie Repo
+
 #[actix_web::test]
-async fn test_get_movies() {
+async fn test_find_all_movies_ok() {
     let mut mock = MockMovieRepository::new();
 
     mock.expect_find_all_movies().returning(|_, _, _| {
@@ -89,4 +87,78 @@ async fn test_get_movies() {
     let movie_list = map.get("movies").unwrap().as_array().unwrap();
     assert_eq!(movie_list.len(), 1);
     assert_eq!(movie_list[0].get("title").unwrap(), "Casino");
+}
+
+#[actix_web::test]
+async fn test_find_all_movies_empty_list() {
+    let mut mock = MockMovieRepository::new();
+
+    mock.expect_find_all_movies()
+        .returning(|_, _, _| Err(AppError::Empty));
+
+    let result = mock.find_all_movies(None, Some(1), Some(10)).await;
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), AppError::Empty);
+}
+
+#[actix_web::test]
+async fn test_find_movie_by_id_ok() {
+    let mut mock = MockMovieRepository::new();
+    let oid = ObjectId::new();
+
+    mock.expect_find_movie_by_id().returning(move |_| {
+        Ok(Movie {
+            _id: oid,
+            imdb_id: "tt12345".to_string(),
+            title: "El lobo de Wall Street".to_string(),
+            director: "Martin Scorsese".to_string(),
+            overview: "Testing movies...".to_string(),
+            release_date: "2002-12-4".to_string(),
+            duration: "2h 54m".to_string(),
+            trailer_link: "https://youtube.com/dasDsdXsDS".to_string(),
+            genres: vec![
+                "Crimen".to_string(),
+                "Drama".to_string(),
+                "Ciencia Ficción".to_string(),
+            ],
+            poster: "https://moviedb.com/lobo/lobo_poster.jpg".to_string(),
+            backdrop: "https://moviedb.com/lobo/lobo_backdrop.jpg".to_string(),
+            review_ids: vec![ObjectId::new()],
+        })
+    });
+
+    let result = mock.find_movie_by_id(oid.to_string().as_str()).await;
+    assert!(result.is_ok());
+
+    let movie = result.unwrap();
+    assert_eq!(movie.imdb_id, "tt12345".to_string());
+    assert_eq!(movie.title, "El lobo de Wall Street".to_string());
+}
+
+#[actix_web::test]
+async fn test_find_movie_by_id_not_found() {
+    let mut mock = MockMovieRepository::new();
+    let oid = ObjectId::new();
+
+    mock.expect_find_movie_by_id()
+        .returning(|_| Err(AppError::NotFound));
+
+    let result = mock.find_movie_by_id(oid.to_string().as_str()).await;
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), AppError::NotFound);
+}
+
+#[actix_web::test]
+async fn test_find_movie_by_id_internal_server_error() {
+    let mut mock = MockMovieRepository::new();
+    let oid = ObjectId::new();
+
+    mock.expect_find_movie_by_id()
+        .returning(|_| Err(AppError::InternalServerError));
+
+    let result = mock.find_movie_by_id(oid.to_string().as_str()).await;
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), AppError::InternalServerError);
 }
