@@ -5,6 +5,7 @@ use actix_web::{
 use error::AppError;
 use models::movie::{Movie, MovieResponse};
 use mongodb::bson::oid::ObjectId;
+use serde_json::Value;
 use services::movie_repo::{MockMovieRepository, MovieRepository};
 
 use super::*;
@@ -161,4 +162,133 @@ async fn test_find_movie_by_id_internal_server_error() {
 
     assert!(result.is_err());
     assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+}
+
+#[actix_web::test]
+async fn test_find_movie_by_imdb_id_ok() {
+    let mut mock = MockMovieRepository::new();
+    let imbd_mock_id = "tt12345";
+
+    mock.expect_find_movie_by_imdb_id().returning(move |_| {
+        Ok(Movie {
+            _id: ObjectId::new(),
+            imdb_id: imbd_mock_id.to_string(),
+            title: "El lobo de Wall Street".to_string(),
+            director: "Martin Scorsese".to_string(),
+            overview: "Testing movies...".to_string(),
+            release_date: "2002-12-4".to_string(),
+            duration: "2h 54m".to_string(),
+            trailer_link: "https://youtube.com/dasDsdXsDS".to_string(),
+            genres: vec![
+                "Crimen".to_string(),
+                "Drama".to_string(),
+                "Ciencia Ficción".to_string(),
+            ],
+            poster: "https://moviedb.com/lobo/lobo_poster.jpg".to_string(),
+            backdrop: "https://moviedb.com/lobo/lobo_backdrop.jpg".to_string(),
+            review_ids: vec![ObjectId::new()],
+        })
+    });
+
+    let result = mock.find_movie_by_imdb_id(&imbd_mock_id).await;
+    assert!(result.is_ok());
+
+    let movie = result.unwrap();
+    assert_eq!(movie.imdb_id, "tt12345".to_string());
+    assert_eq!(movie.title, "El lobo de Wall Street".to_string());
+}
+
+#[actix_web::test]
+async fn test_find_movie_by_imdb_id_wrong_imdb_id() {
+    let mut mock = MockMovieRepository::new();
+    let imdb_mock_id = "tfd2312";
+
+    mock.expect_find_movie_by_imdb_id()
+        .returning(|_| Err(AppError::WrongImdbId));
+
+    let result = mock.find_movie_by_imdb_id(&imdb_mock_id).await;
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), AppError::WrongImdbId);
+}
+
+#[actix_web::test]
+async fn test_find_movie_by_imdb_id_not_found() {
+    let mut mock = MockMovieRepository::new();
+    let imdb_mock_id = "tt54321";
+
+    mock.expect_find_movie_by_imdb_id()
+        .returning(|_| Err(AppError::NotFound));
+
+    let result = mock.find_movie_by_imdb_id(&imdb_mock_id).await;
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), AppError::NotFound);
+}
+
+#[actix_web::test]
+async fn test_find_movie_by_imdb_id_internal_server_error() {
+    let mut mock = MockMovieRepository::new();
+    let imdb_mock_id = "tt54321";
+
+    mock.expect_find_movie_by_imdb_id()
+        .returning(|_| Err(AppError::InternalServerError));
+
+    let result = mock.find_movie_by_imdb_id(&imdb_mock_id).await;
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+}
+
+#[actix_web::test]
+async fn test_create_movie_ok() {
+    let mut mock = MockMovieRepository::new();
+    let oid = ObjectId::new();
+    let movie = Movie {
+        _id: oid,
+        imdb_id: "tt12345".to_string(),
+        title: "El lobo de Wall Street".to_string(),
+        director: "Martin Scorsese".to_string(),
+        overview: "Testing movies...".to_string(),
+        release_date: "2002-12-4".to_string(),
+        duration: "2h 54m".to_string(),
+        trailer_link: "https://youtube.com/dasDsdXsDS".to_string(),
+        genres: vec![
+            "Crimen".to_string(),
+            "Drama".to_string(),
+            "Ciencia Ficción".to_string(),
+        ],
+        poster: "https://moviedb.com/lobo/lobo_poster.jpg".to_string(),
+        backdrop: "https://moviedb.com/lobo/lobo_backdrop.jpg".to_string(),
+        review_ids: vec![ObjectId::new()],
+    };
+
+    mock.expect_create_movie().returning(move |movie| {
+        let mut map_result: Map<String, Value> = Map::new();
+        map_result.insert(
+            "message".to_string(),
+            Value::String(
+                format!(
+                    "Movie was successfully created. (id: '{}')",
+                    movie._id.to_string()
+                )
+                .to_string(),
+            ),
+        );
+        Ok(map_result)
+    });
+
+    let result = mock.create_movie(movie).await;
+
+    assert!(result.is_ok());
+
+    let map = result.unwrap();
+    assert_eq!(
+        map["message"],
+        format!(
+            "Movie was successfully created. (id: '{}')",
+            oid.to_string()
+        )
+        .to_string()
+    );
 }
