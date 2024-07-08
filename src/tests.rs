@@ -3,7 +3,7 @@ use actix_web::{
     test, App,
 };
 use error::AppError;
-use models::movie::{Movie, MovieResponse};
+use models::movie::{Movie, MovieRequest, MovieResponse};
 use mongodb::bson::oid::ObjectId;
 use serde_json::Value;
 use services::movie_repo::{MockMovieRepository, MovieRepository};
@@ -51,6 +51,27 @@ async fn test_health_ok() {
 }
 
 // Movie Repo
+
+fn build_movie_mock(oid: ObjectId) -> Movie {
+    Movie {
+        _id: oid,
+        imdb_id: "tt12345".to_string(),
+        title: "El lobo de Wall Street".to_string(),
+        director: "Martin Scorsese".to_string(),
+        overview: "Testing movies...".to_string(),
+        release_date: "2002-12-4".to_string(),
+        duration: "2h 54m".to_string(),
+        trailer_link: "https://youtube.com/dasDsdXsDS".to_string(),
+        genres: vec![
+            "Crimen".to_string(),
+            "Drama".to_string(),
+            "Ciencia Ficción".to_string(),
+        ],
+        poster: "https://moviedb.com/lobo/lobo_poster.jpg".to_string(),
+        backdrop: "https://moviedb.com/lobo/lobo_backdrop.jpg".to_string(),
+        review_ids: vec![ObjectId::new()],
+    }
+}
 
 #[actix_web::test]
 async fn test_find_all_movies_ok() {
@@ -107,26 +128,8 @@ async fn test_find_movie_by_id_ok() {
     let mut mock = MockMovieRepository::new();
     let oid = ObjectId::new();
 
-    mock.expect_find_movie_by_id().returning(move |_| {
-        Ok(Movie {
-            _id: oid,
-            imdb_id: "tt12345".to_string(),
-            title: "El lobo de Wall Street".to_string(),
-            director: "Martin Scorsese".to_string(),
-            overview: "Testing movies...".to_string(),
-            release_date: "2002-12-4".to_string(),
-            duration: "2h 54m".to_string(),
-            trailer_link: "https://youtube.com/dasDsdXsDS".to_string(),
-            genres: vec![
-                "Crimen".to_string(),
-                "Drama".to_string(),
-                "Ciencia Ficción".to_string(),
-            ],
-            poster: "https://moviedb.com/lobo/lobo_poster.jpg".to_string(),
-            backdrop: "https://moviedb.com/lobo/lobo_backdrop.jpg".to_string(),
-            review_ids: vec![ObjectId::new()],
-        })
-    });
+    mock.expect_find_movie_by_id()
+        .returning(move |_| Ok(build_movie_mock(oid)));
 
     let result = mock.find_movie_by_id(oid.to_string().as_str()).await;
     assert!(result.is_ok());
@@ -169,26 +172,8 @@ async fn test_find_movie_by_imdb_id_ok() {
     let mut mock = MockMovieRepository::new();
     let imbd_mock_id = "tt12345";
 
-    mock.expect_find_movie_by_imdb_id().returning(move |_| {
-        Ok(Movie {
-            _id: ObjectId::new(),
-            imdb_id: imbd_mock_id.to_string(),
-            title: "El lobo de Wall Street".to_string(),
-            director: "Martin Scorsese".to_string(),
-            overview: "Testing movies...".to_string(),
-            release_date: "2002-12-4".to_string(),
-            duration: "2h 54m".to_string(),
-            trailer_link: "https://youtube.com/dasDsdXsDS".to_string(),
-            genres: vec![
-                "Crimen".to_string(),
-                "Drama".to_string(),
-                "Ciencia Ficción".to_string(),
-            ],
-            poster: "https://moviedb.com/lobo/lobo_poster.jpg".to_string(),
-            backdrop: "https://moviedb.com/lobo/lobo_backdrop.jpg".to_string(),
-            review_ids: vec![ObjectId::new()],
-        })
-    });
+    mock.expect_find_movie_by_imdb_id()
+        .returning(move |_| Ok(build_movie_mock(ObjectId::new())));
 
     let result = mock.find_movie_by_imdb_id(&imbd_mock_id).await;
     assert!(result.is_ok());
@@ -244,24 +229,7 @@ async fn test_find_movie_by_imdb_id_internal_server_error() {
 async fn test_create_movie_ok() {
     let mut mock = MockMovieRepository::new();
     let oid = ObjectId::new();
-    let movie = Movie {
-        _id: oid,
-        imdb_id: "tt12345".to_string(),
-        title: "El lobo de Wall Street".to_string(),
-        director: "Martin Scorsese".to_string(),
-        overview: "Testing movies...".to_string(),
-        release_date: "2002-12-4".to_string(),
-        duration: "2h 54m".to_string(),
-        trailer_link: "https://youtube.com/dasDsdXsDS".to_string(),
-        genres: vec![
-            "Crimen".to_string(),
-            "Drama".to_string(),
-            "Ciencia Ficción".to_string(),
-        ],
-        poster: "https://moviedb.com/lobo/lobo_poster.jpg".to_string(),
-        backdrop: "https://moviedb.com/lobo/lobo_backdrop.jpg".to_string(),
-        review_ids: vec![ObjectId::new()],
-    };
+    let movie = build_movie_mock(oid);
 
     mock.expect_create_movie().returning(move |movie| {
         let mut map_result: Map<String, Value> = Map::new();
@@ -291,4 +259,209 @@ async fn test_create_movie_ok() {
         )
         .to_string()
     );
+}
+
+#[actix_web::test]
+async fn test_create_movie_already_exists() {
+    let mut mock = MockMovieRepository::new();
+
+    mock.expect_create_movie()
+        .returning(|_| Err(AppError::AlreadyExists));
+
+    let oid = ObjectId::new();
+    let movie = build_movie_mock(oid);
+
+    let result = mock.create_movie(movie).await;
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), AppError::AlreadyExists);
+}
+
+#[actix_web::test]
+async fn test_create_movie_internal_server_error() {
+    let mut mock = MockMovieRepository::new();
+
+    mock.expect_create_movie()
+        .returning(|_| Err(AppError::InternalServerError));
+
+    let oid = ObjectId::new();
+    let movie = build_movie_mock(oid);
+
+    let result = mock.create_movie(movie).await;
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+}
+
+#[actix_web::test]
+async fn test_delete_movie_ok() {
+    let mut mock = MockMovieRepository::new();
+    let oid = ObjectId::new();
+    let parsed_oid = oid.to_string();
+    let str_oid = parsed_oid.as_str();
+
+    mock.expect_delete_movie().returning(move |str_oid| {
+        let mut map_result: Map<String, Value> = Map::new();
+        map_result.insert(
+            "message".to_string(),
+            Value::String(
+                format!("Movie with id: '{}' was successfully deleted", str_oid).to_string(),
+            ),
+        );
+        Ok(map_result)
+    });
+
+    let result = mock.delete_movie(str_oid).await;
+
+    assert!(result.is_ok());
+
+    let map = result.unwrap();
+    assert_eq!(
+        map["message"],
+        format!("Movie with id: '{}' was successfully deleted", str_oid).to_string()
+    );
+}
+
+#[actix_web::test]
+async fn test_delete_movie_internal_server_error() {
+    let mut mock = MockMovieRepository::new();
+    let oid = ObjectId::new();
+    let parsed_oid = oid.to_string();
+    let str_oid = parsed_oid.as_str();
+
+    mock.expect_delete_movie()
+        .returning(|_| Err(AppError::InternalServerError));
+
+    let result = mock.delete_movie(str_oid).await;
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+}
+
+#[actix_web::test]
+async fn test_delete_movie_not_exists() {
+    let mut mock = MockMovieRepository::new();
+    let oid = ObjectId::new();
+    let parsed_oid = oid.to_string();
+    let str_oid = parsed_oid.as_str();
+
+    mock.expect_delete_movie()
+        .returning(|_| Err(AppError::NotExists));
+
+    let result = mock.delete_movie(str_oid).await;
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), AppError::NotExists);
+}
+
+#[actix_web::test]
+async fn test_movie_exists_by_imdb_id_true() {
+    let mut mock = MockMovieRepository::new();
+    let imdb_id_mock = "tt12345";
+
+    mock.expect_movie_exists_by_imdb_id()
+        .returning(|_| Ok(true));
+
+    let result = mock.movie_exists_by_imdb_id(&imdb_id_mock).await;
+
+    assert!(result.is_ok());
+    assert!(result.unwrap());
+}
+
+#[actix_web::test]
+async fn test_movie_exists_by_imdb_id_false() {
+    let mut mock = MockMovieRepository::new();
+    let imdb_id_mock = "tt54321";
+
+    mock.expect_movie_exists_by_imdb_id()
+        .returning(|_| Ok(false));
+
+    let result = mock.movie_exists_by_imdb_id(&imdb_id_mock).await;
+
+    assert!(result.is_ok());
+    assert!(!result.unwrap());
+}
+
+#[actix_web::test]
+async fn test_movie_exists_by_imdb_id_internal_server_error() {
+    let mut mock = MockMovieRepository::new();
+    let imdb_id_mock = "tt54321";
+
+    mock.expect_movie_exists_by_imdb_id()
+        .returning(|_| Err(AppError::InternalServerError));
+
+    let result = mock.movie_exists_by_imdb_id(&imdb_id_mock).await;
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+}
+
+#[actix_web::test]
+async fn test_update_movie_ok() {
+    let mut mock = MockMovieRepository::new();
+    let oid = ObjectId::new();
+    let parsed_oid = oid.to_string();
+    let str_oid = parsed_oid.as_str();
+    let movie = MovieRequest {
+        imdb_id: "tt12345".to_string(),
+        title: "Casino".to_string(),
+        overview: "Película que trata de la mafia de los casinos de Las Vegas".to_string(),
+        director: "Martin Scorsese".to_string(),
+        duration: "2h 54m".to_string(),
+        release_date: "1990-3-4".to_string(),
+        genres: vec!["Crímen".to_string(), "Drama".to_string()],
+        trailer_link: "https://youtube.com/video/ds1281o3l1h".to_string(),
+        poster: "https://moviedb.com/casino/poster.jpg".to_string(),
+        backdrop: "https://moviedb.com/casino/poster.jpg".to_string(),
+    };
+
+    mock.expect_update_movie().returning(|str_oid, _| {
+        let mut map_result: Map<String, Value> = Map::new();
+        map_result.insert(
+            "message".to_string(),
+            Value::String(format!(
+                "Movie with id: '{}' was successfully updated",
+                str_oid
+            )),
+        );
+        Ok(map_result)
+    });
+
+    let result = mock.update_movie(str_oid, movie).await;
+
+    assert!(result.is_ok());
+
+    let map = result.unwrap();
+    assert_eq!(
+        map["message"],
+        format!("Movie with id: '{}' was successfully updated", str_oid).to_string()
+    );
+}
+
+#[actix_web::test]
+async fn test_update_movie_not_exists() {
+    let mut mock = MockMovieRepository::new();
+    let oid = ObjectId::new();
+    let parsed_oid = oid.to_string();
+    let str_oid = parsed_oid.as_str();
+    let movie = MovieRequest {
+        imdb_id: "tt12345".to_string(),
+        title: "Casino".to_string(),
+        overview: "Película que trata de la mafia de los casinos de Las Vegas".to_string(),
+        director: "Martin Scorsese".to_string(),
+        duration: "2h 54m".to_string(),
+        release_date: "1990-3-4".to_string(),
+        genres: vec!["Crímen".to_string(), "Drama".to_string()],
+        trailer_link: "https://youtube.com/video/ds1281o3l1h".to_string(),
+        poster: "https://moviedb.com/casino/poster.jpg".to_string(),
+        backdrop: "https://moviedb.com/casino/poster.jpg".to_string(),
+    };
+
+    mock.expect_update_movie()
+        .returning(|_, _| Err(AppError::NotExists));
+
+    let result = mock.update_movie(str_oid, movie).await;
+
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), AppError::NotExists);
 }
