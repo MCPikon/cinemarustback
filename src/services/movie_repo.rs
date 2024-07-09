@@ -454,3 +454,561 @@ impl MovieRepository for Database {
         Ok(map_result)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use mongodb::bson::oid::ObjectId;
+    use serde_json::Value;
+    use AppError;
+    use {MockMovieRepository, Movie, MovieRepository, MovieRequest, MovieResponse};
+
+    use super::*;
+
+    // Auxiliar Functions
+
+    fn build_movie_mock(oid: ObjectId) -> Movie {
+        Movie {
+            _id: oid,
+            imdb_id: "tt12345".to_string(),
+            title: "El lobo de Wall Street".to_string(),
+            director: "Martin Scorsese".to_string(),
+            overview: "Testing movies...".to_string(),
+            release_date: "2002-12-4".to_string(),
+            duration: "2h 54m".to_string(),
+            trailer_link: "https://youtube.com/dasDsdXsDS".to_string(),
+            genres: vec![
+                "Crimen".to_string(),
+                "Drama".to_string(),
+                "Ciencia Ficción".to_string(),
+            ],
+            poster: "https://moviedb.com/lobo/lobo_poster.jpg".to_string(),
+            backdrop: "https://moviedb.com/lobo/lobo_backdrop.jpg".to_string(),
+            review_ids: vec![ObjectId::new()],
+        }
+    }
+
+    fn build_movie_req_mock() -> MovieRequest {
+        MovieRequest {
+            imdb_id: "tt12345".to_string(),
+            title: "Casino".to_string(),
+            overview: "Película que trata de la mafia de los casinos de Las Vegas".to_string(),
+            director: "Martin Scorsese".to_string(),
+            duration: "2h 54m".to_string(),
+            release_date: "1990-3-4".to_string(),
+            genres: vec!["Crímen".to_string(), "Drama".to_string()],
+            trailer_link: "https://youtube.com/video/ds1281o3l1h".to_string(),
+            poster: "https://moviedb.com/casino/poster.jpg".to_string(),
+            backdrop: "https://moviedb.com/casino/poster.jpg".to_string(),
+        }
+    }
+
+    // Unit Tests
+
+    #[actix_web::test]
+    async fn test_find_all_movies_ok() {
+        let mut mock = MockMovieRepository::new();
+
+        mock.expect_find_all_movies().returning(|_, _, _| {
+            let mut result_map = serde_json::Map::new();
+            let movie = MovieResponse {
+                imdb_id: "tt12345".to_string(),
+                title: "Casino".to_string(),
+                duration: "2h 54m".to_string(),
+                release_date: "1990-3-4".to_string(),
+                poster: "https://moviedb.com/casino/poster.jpg".to_string(),
+            };
+            result_map.insert(
+                "movies".to_string(),
+                serde_json::to_value(vec![movie]).unwrap(),
+            );
+            result_map.insert("currentPage".to_string(), serde_json::to_value(1).unwrap());
+            result_map.insert("totalItems".to_string(), serde_json::to_value(1).unwrap());
+            result_map.insert("totalPages".to_string(), serde_json::to_value(1).unwrap());
+            Ok(result_map)
+        });
+
+        let result = mock
+            .find_all_movies(Some("Casino".to_string()), Some(1), Some(10))
+            .await;
+
+        let map = result.unwrap();
+        assert_eq!(map.get("currentPage").unwrap(), 1);
+        assert_eq!(map.get("totalItems").unwrap(), 1);
+        assert_eq!(map.get("totalPages").unwrap(), 1);
+
+        let movie_list = map.get("movies").unwrap().as_array().unwrap();
+        assert_eq!(movie_list.len(), 1);
+        assert_eq!(movie_list[0].get("title").unwrap(), "Casino");
+    }
+
+    #[actix_web::test]
+    async fn test_find_all_movies_empty_list() {
+        let mut mock = MockMovieRepository::new();
+
+        mock.expect_find_all_movies()
+            .returning(|_, _, _| Err(AppError::Empty));
+
+        let result = mock.find_all_movies(None, Some(1), Some(10)).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::Empty);
+    }
+
+    #[actix_web::test]
+    async fn test_find_movie_by_id_ok() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+
+        mock.expect_find_movie_by_id()
+            .returning(move |_| Ok(build_movie_mock(oid)));
+
+        let result = mock.find_movie_by_id(oid.to_string().as_str()).await;
+        assert!(result.is_ok());
+
+        let movie = result.unwrap();
+        assert_eq!(movie.imdb_id, "tt12345".to_string());
+        assert_eq!(movie.title, "El lobo de Wall Street".to_string());
+    }
+
+    #[actix_web::test]
+    async fn test_find_movie_by_id_cannot_parse_obj_id() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+
+        mock.expect_find_movie_by_id()
+            .returning(|_| Err(AppError::CannotParseObjId));
+
+        let result = mock.find_movie_by_id(oid.to_string().as_str()).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::CannotParseObjId);
+    }
+
+    #[actix_web::test]
+    async fn test_find_movie_by_id_not_found() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+
+        mock.expect_find_movie_by_id()
+            .returning(|_| Err(AppError::NotFound));
+
+        let result = mock.find_movie_by_id(oid.to_string().as_str()).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::NotFound);
+    }
+
+    #[actix_web::test]
+    async fn test_find_movie_by_id_internal_server_error() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+
+        mock.expect_find_movie_by_id()
+            .returning(|_| Err(AppError::InternalServerError));
+
+        let result = mock.find_movie_by_id(oid.to_string().as_str()).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+    }
+
+    #[actix_web::test]
+    async fn test_find_movie_by_imdb_id_ok() {
+        let mut mock = MockMovieRepository::new();
+        let imbd_mock_id = "tt12345";
+
+        mock.expect_find_movie_by_imdb_id()
+            .returning(move |_| Ok(build_movie_mock(ObjectId::new())));
+
+        let result = mock.find_movie_by_imdb_id(&imbd_mock_id).await;
+        assert!(result.is_ok());
+
+        let movie = result.unwrap();
+        assert_eq!(movie.imdb_id, "tt12345".to_string());
+        assert_eq!(movie.title, "El lobo de Wall Street".to_string());
+    }
+
+    #[actix_web::test]
+    async fn test_find_movie_by_imdb_id_wrong_imdb_id() {
+        let mut mock = MockMovieRepository::new();
+        let imdb_mock_id = "tfd2312";
+
+        mock.expect_find_movie_by_imdb_id()
+            .returning(|_| Err(AppError::WrongImdbId));
+
+        let result = mock.find_movie_by_imdb_id(&imdb_mock_id).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::WrongImdbId);
+    }
+
+    #[actix_web::test]
+    async fn test_find_movie_by_imdb_id_not_found() {
+        let mut mock = MockMovieRepository::new();
+        let imdb_mock_id = "tt54321";
+
+        mock.expect_find_movie_by_imdb_id()
+            .returning(|_| Err(AppError::NotFound));
+
+        let result = mock.find_movie_by_imdb_id(&imdb_mock_id).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::NotFound);
+    }
+
+    #[actix_web::test]
+    async fn test_find_movie_by_imdb_id_internal_server_error() {
+        let mut mock = MockMovieRepository::new();
+        let imdb_mock_id = "tt54321";
+
+        mock.expect_find_movie_by_imdb_id()
+            .returning(|_| Err(AppError::InternalServerError));
+
+        let result = mock.find_movie_by_imdb_id(&imdb_mock_id).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+    }
+
+    #[actix_web::test]
+    async fn test_create_movie_ok() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+        let movie = build_movie_mock(oid);
+
+        mock.expect_create_movie().returning(move |movie| {
+            let mut map_result: Map<String, Value> = Map::new();
+            map_result.insert(
+                "message".to_string(),
+                Value::String(
+                    format!(
+                        "Movie was successfully created. (id: '{}')",
+                        movie._id.to_string()
+                    )
+                    .to_string(),
+                ),
+            );
+            Ok(map_result)
+        });
+
+        let result = mock.create_movie(movie).await;
+
+        assert!(result.is_ok());
+
+        let map = result.unwrap();
+        assert_eq!(
+            map["message"],
+            format!(
+                "Movie was successfully created. (id: '{}')",
+                oid.to_string()
+            )
+            .to_string()
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_create_movie_already_exists() {
+        let mut mock = MockMovieRepository::new();
+
+        mock.expect_create_movie()
+            .returning(|_| Err(AppError::AlreadyExists));
+
+        let oid = ObjectId::new();
+        let movie = build_movie_mock(oid);
+
+        let result = mock.create_movie(movie).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::AlreadyExists);
+    }
+
+    #[actix_web::test]
+    async fn test_create_movie_internal_server_error() {
+        let mut mock = MockMovieRepository::new();
+
+        mock.expect_create_movie()
+            .returning(|_| Err(AppError::InternalServerError));
+
+        let oid = ObjectId::new();
+        let movie = build_movie_mock(oid);
+
+        let result = mock.create_movie(movie).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+    }
+
+    #[actix_web::test]
+    async fn test_delete_movie_ok() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+
+        mock.expect_delete_movie().returning(move |str_oid| {
+            let mut map_result: Map<String, Value> = Map::new();
+            map_result.insert(
+                "message".to_string(),
+                Value::String(
+                    format!("Movie with id: '{}' was successfully deleted", str_oid).to_string(),
+                ),
+            );
+            Ok(map_result)
+        });
+
+        let result = mock.delete_movie(str_oid).await;
+
+        assert!(result.is_ok());
+
+        let map = result.unwrap();
+        assert_eq!(
+            map["message"],
+            format!("Movie with id: '{}' was successfully deleted", str_oid).to_string()
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_delete_movie_internal_server_error() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+
+        mock.expect_delete_movie()
+            .returning(|_| Err(AppError::InternalServerError));
+
+        let result = mock.delete_movie(str_oid).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+    }
+
+    #[actix_web::test]
+    async fn test_delete_movie_not_exists() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+
+        mock.expect_delete_movie()
+            .returning(|_| Err(AppError::NotExists));
+
+        let result = mock.delete_movie(str_oid).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::NotExists);
+    }
+
+    #[actix_web::test]
+    async fn test_movie_exists_by_imdb_id_true() {
+        let mut mock = MockMovieRepository::new();
+        let imdb_id_mock = "tt12345";
+
+        mock.expect_movie_exists_by_imdb_id()
+            .returning(|_| Ok(true));
+
+        let result = mock.movie_exists_by_imdb_id(&imdb_id_mock).await;
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[actix_web::test]
+    async fn test_movie_exists_by_imdb_id_false() {
+        let mut mock = MockMovieRepository::new();
+        let imdb_id_mock = "tt54321";
+
+        mock.expect_movie_exists_by_imdb_id()
+            .returning(|_| Ok(false));
+
+        let result = mock.movie_exists_by_imdb_id(&imdb_id_mock).await;
+
+        assert!(result.is_ok());
+        assert!(!result.unwrap());
+    }
+
+    #[actix_web::test]
+    async fn test_movie_exists_by_imdb_id_internal_server_error() {
+        let mut mock = MockMovieRepository::new();
+        let imdb_id_mock = "tt54321";
+
+        mock.expect_movie_exists_by_imdb_id()
+            .returning(|_| Err(AppError::InternalServerError));
+
+        let result = mock.movie_exists_by_imdb_id(&imdb_id_mock).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+    }
+
+    #[actix_web::test]
+    async fn test_update_movie_ok() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let movie = build_movie_req_mock();
+
+        mock.expect_update_movie().returning(|str_oid, _| {
+            let mut map_result: Map<String, Value> = Map::new();
+            map_result.insert(
+                "message".to_string(),
+                Value::String(format!(
+                    "Movie with id: '{}' was successfully updated",
+                    str_oid
+                )),
+            );
+            Ok(map_result)
+        });
+
+        let result = mock.update_movie(str_oid, movie).await;
+
+        assert!(result.is_ok());
+
+        let map = result.unwrap();
+        assert_eq!(
+            map["message"],
+            format!("Movie with id: '{}' was successfully updated", str_oid).to_string()
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_update_movie_not_exists() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let movie = build_movie_req_mock();
+
+        mock.expect_update_movie()
+            .returning(|_, _| Err(AppError::NotExists));
+
+        let result = mock.update_movie(str_oid, movie).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::NotExists);
+    }
+
+    #[actix_web::test]
+    async fn test_update_movie_internal_server_error() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let movie = build_movie_req_mock();
+
+        mock.expect_update_movie()
+            .returning(|_, _| Err(AppError::InternalServerError));
+
+        let result = mock.update_movie(str_oid, movie).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+    }
+
+    #[actix_web::test]
+    async fn test_update_movie_imdb_id_in_use() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let movie = build_movie_req_mock();
+
+        mock.expect_update_movie()
+            .returning(|_, _| Err(AppError::ImdbIdInUse));
+
+        let result = mock.update_movie(str_oid, movie).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::ImdbIdInUse);
+    }
+
+    #[actix_web::test]
+    async fn test_patch_movie_ok() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let field = "title";
+        let val_mock = "El Cabo del Miedo";
+
+        mock.expect_patch_movie().returning(|str_oid, field, _| {
+            let mut map_result: Map<String, Value> = Map::new();
+            map_result.insert(
+                "message".to_string(),
+                Value::String(format!(
+                    "Movie {} with id: '{}' was successfully patched",
+                    field, str_oid
+                )),
+            );
+            Ok(map_result)
+        });
+
+        let result = mock.patch_movie(&str_oid, &field, &val_mock).await;
+
+        assert!(result.is_ok());
+
+        let map = result.unwrap();
+        assert_eq!(
+            map["message"],
+            format!(
+                "Movie {} with id: '{}' was successfully patched",
+                field, str_oid
+            )
+            .to_string()
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_patch_movie_field_not_allowed() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let field = "titleeee";
+        let val_mock = "El Cabo del Miedo";
+
+        mock.expect_patch_movie()
+            .returning(|_, _, _| Err(AppError::FieldNotAllowed));
+
+        let result = mock.patch_movie(&str_oid, &field, &val_mock).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::FieldNotAllowed);
+    }
+
+    #[actix_web::test]
+    async fn test_patch_movie_wrong_imdb_id() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let field = "imdbId";
+        let val_mock = "tF123asS";
+
+        mock.expect_patch_movie()
+            .returning(|_, _, _| Err(AppError::WrongImdbId));
+
+        let result = mock.patch_movie(&str_oid, &field, &val_mock).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::WrongImdbId);
+    }
+
+    #[actix_web::test]
+    async fn test_patch_movie_imdb_id_in_use() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let field = "imdbId";
+        let val_mock = "tt12345";
+
+        mock.expect_patch_movie()
+            .returning(|_, _, _| Err(AppError::ImdbIdInUse));
+
+        let result = mock.patch_movie(&str_oid, &field, &val_mock).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::ImdbIdInUse);
+    }
+}

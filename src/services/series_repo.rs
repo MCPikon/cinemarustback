@@ -21,6 +21,7 @@ lazy_static! {
     static ref RE_IMDB_ID: regex::Regex = regex::Regex::new(r"^tt\d+$").unwrap();
 }
 
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SeriesRepository {
     async fn find_all_series(
@@ -458,5 +459,50 @@ impl SeriesRepository for Database {
             }),
         );
         Ok(map_result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use SeriesResponse;
+    use {MockSeriesRepository, SeriesRepository};
+
+    use super::*;
+
+    #[actix_web::test]
+    async fn test_find_all_series_ok() {
+        let mut mock = MockSeriesRepository::new();
+
+        mock.expect_find_all_series().returning(|_, _, _| {
+            let mut result_map = serde_json::Map::new();
+            let series = SeriesResponse {
+                imdb_id: "tt12345".to_string(),
+                title: "Breaking Bad".to_string(),
+                number_of_seasons: 5,
+                release_date: "1990-3-4".to_string(),
+                poster: "https://moviedb.com/breaking_bad/poster.jpg".to_string(),
+            };
+            result_map.insert(
+                "series".to_string(),
+                serde_json::to_value(vec![series]).unwrap(),
+            );
+            result_map.insert("currentPage".to_string(), serde_json::to_value(1).unwrap());
+            result_map.insert("totalItems".to_string(), serde_json::to_value(1).unwrap());
+            result_map.insert("totalPages".to_string(), serde_json::to_value(1).unwrap());
+            Ok(result_map)
+        });
+
+        let result = mock
+            .find_all_series(Some("Breaking Bad".to_string()), Some(1), Some(10))
+            .await;
+
+        let map = result.unwrap();
+        assert_eq!(map.get("currentPage").unwrap(), 1);
+        assert_eq!(map.get("totalItems").unwrap(), 1);
+        assert_eq!(map.get("totalPages").unwrap(), 1);
+
+        let movie_list = map.get("series").unwrap().as_array().unwrap();
+        assert_eq!(movie_list.len(), 1);
+        assert_eq!(movie_list[0].get("title").unwrap(), "Breaking Bad");
     }
 }
