@@ -554,6 +554,18 @@ mod tests {
     }
 
     #[actix_web::test]
+    async fn test_find_all_movies_internal_server_error() {
+        let mut mock = MockMovieRepository::new();
+
+        mock.expect_find_all_movies()
+            .returning(|_, _, _| Err(AppError::InternalServerError));
+
+        let result = mock.find_all_movies(None, Some(1), Some(10)).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+    }
+
+    #[actix_web::test]
     async fn test_find_movie_by_id_ok() {
         let mut mock = MockMovieRepository::new();
         let oid = ObjectId::new();
@@ -617,7 +629,7 @@ mod tests {
         let imbd_mock_id = "tt12345";
 
         mock.expect_find_movie_by_imdb_id()
-            .returning(move |_| Ok(build_movie_mock(ObjectId::new())));
+            .returning(|_| Ok(build_movie_mock(ObjectId::new())));
 
         let result = mock.find_movie_by_imdb_id(&imbd_mock_id).await;
         assert!(result.is_ok());
@@ -675,7 +687,7 @@ mod tests {
         let oid = ObjectId::new();
         let movie = build_movie_mock(oid);
 
-        mock.expect_create_movie().returning(move |movie| {
+        mock.expect_create_movie().returning(|movie| {
             let mut map_result: Map<String, Value> = Map::new();
             map_result.insert(
                 "message".to_string(),

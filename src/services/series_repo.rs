@@ -465,9 +465,31 @@ impl SeriesRepository for Database {
 #[cfg(test)]
 mod tests {
     use SeriesResponse;
+
     use {MockSeriesRepository, SeriesRepository};
 
     use super::*;
+
+    // Auxiliary Functions
+    fn build_series_mock(oid: ObjectId) -> Series {
+        Series {
+            _id: oid,
+            imdb_id: "tt12345".to_string(),
+            title: "Breaking Bad".to_string(),
+            overview: "Serie sobre Walter White y su imperio de la meta.".to_string(),
+            number_of_seasons: 5,
+            creator: "Vince Gilligan".to_string(),
+            release_date: "2006-04-02".to_string(),
+            trailer_link: "https://youtube.com/video/dsan21jhk1j".to_string(),
+            genres: vec!["Crimen".to_string(), "Drama".to_string()],
+            season_list: vec![],
+            poster: "https://moviedb.com/breaking_bad/poster.jpg".to_string(),
+            backdrop: "https://moviedb.com/breaking_bad/backdrop.jpg".to_string(),
+            review_ids: vec![ObjectId::new()],
+        }
+    }
+
+    // Unit Tests
 
     #[actix_web::test]
     async fn test_find_all_series_ok() {
@@ -504,5 +526,263 @@ mod tests {
         let movie_list = map.get("series").unwrap().as_array().unwrap();
         assert_eq!(movie_list.len(), 1);
         assert_eq!(movie_list[0].get("title").unwrap(), "Breaking Bad");
+    }
+
+    #[actix_web::test]
+    async fn test_find_all_series_empty_list() {
+        let mut mock = MockSeriesRepository::new();
+
+        mock.expect_find_all_series()
+            .returning(|_, _, _| Err(AppError::Empty));
+
+        let result = mock.find_all_series(None, Some(1), Some(10)).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::Empty);
+    }
+
+    #[actix_web::test]
+    async fn test_find_all_series_internal_server_error() {
+        let mut mock = MockSeriesRepository::new();
+
+        mock.expect_find_all_series()
+            .returning(|_, _, _| Err(AppError::InternalServerError));
+
+        let result = mock.find_all_series(None, Some(1), Some(10)).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+    }
+
+    #[actix_web::test]
+    async fn test_find_series_by_id_ok() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+
+        mock.expect_find_series_by_id()
+            .returning(move |_| Ok(build_series_mock(oid)));
+
+        let result = mock.find_series_by_id(oid.to_string().as_str()).await;
+        assert!(result.is_ok());
+
+        let series = result.unwrap();
+        assert_eq!(series.imdb_id, "tt12345".to_string());
+        assert_eq!(series.title, "Breaking Bad".to_string());
+    }
+
+    #[actix_web::test]
+    async fn test_find_series_by_id_cannot_parse_obj_id() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+
+        mock.expect_find_series_by_id()
+            .returning(|_| Err(AppError::CannotParseObjId));
+
+        let result = mock.find_series_by_id(oid.to_string().as_str()).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::CannotParseObjId)
+    }
+
+    #[actix_web::test]
+    async fn test_find_series_by_id_not_found() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+
+        mock.expect_find_series_by_id()
+            .returning(|_| Err(AppError::NotFound));
+
+        let result = mock.find_series_by_id(oid.to_string().as_str()).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::NotFound)
+    }
+
+    #[actix_web::test]
+    async fn test_find_series_by_id_internal_server_error() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+
+        mock.expect_find_series_by_id()
+            .returning(|_| Err(AppError::InternalServerError));
+
+        let result = mock.find_series_by_id(oid.to_string().as_str()).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError)
+    }
+
+    #[actix_web::test]
+    async fn test_find_series_by_imdb_id_ok() {
+        let mut mock = MockSeriesRepository::new();
+        let imdb_id = "tt12345";
+
+        mock.expect_find_series_by_imdb_id()
+            .returning(|_| Ok(build_series_mock(ObjectId::new())));
+
+        let result = mock.find_series_by_imdb_id(&imdb_id).await;
+        assert!(result.is_ok());
+
+        let series = result.unwrap();
+        assert_eq!(series.imdb_id, "tt12345".to_string());
+        assert_eq!(series.title, "Breaking Bad".to_string());
+    }
+
+    #[actix_web::test]
+    async fn test_find_series_by_imdb_id_wrong_imdb_id() {
+        let mut mock = MockSeriesRepository::new();
+        let imdb_id = "tf12asD5";
+
+        mock.expect_find_series_by_imdb_id()
+            .returning(|_| Err(AppError::WrongImdbId));
+
+        let result = mock.find_series_by_imdb_id(&imdb_id).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::WrongImdbId);
+    }
+
+    #[actix_web::test]
+    async fn test_find_series_by_imdb_id_not_found() {
+        let mut mock = MockSeriesRepository::new();
+        let imdb_id = "tt54321";
+
+        mock.expect_find_series_by_imdb_id()
+            .returning(|_| Err(AppError::NotFound));
+
+        let result = mock.find_series_by_imdb_id(&imdb_id).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::NotFound);
+    }
+
+    #[actix_web::test]
+    async fn test_find_series_by_imdb_internal_server_error() {
+        let mut mock = MockSeriesRepository::new();
+        let imdb_id = "tt54321";
+
+        mock.expect_find_series_by_imdb_id()
+            .returning(|_| Err(AppError::InternalServerError));
+
+        let result = mock.find_series_by_imdb_id(&imdb_id).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+    }
+
+    #[actix_web::test]
+    async fn test_create_series_ok() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+        let series = build_series_mock(oid);
+
+        mock.expect_create_series().returning(|series| {
+            let mut map_result: Map<String, Value> = Map::new();
+            map_result.insert(
+                "message".to_string(),
+                Value::String(
+                    format!(
+                        "Series was successfully created. (id: '{}')",
+                        series._id.to_string()
+                    )
+                    .to_string(),
+                ),
+            );
+            Ok(map_result)
+        });
+
+        let result = mock.create_series(series).await;
+        assert!(result.is_ok());
+
+        let map = result.unwrap();
+        assert_eq!(
+            map["message"],
+            format!(
+                "Series was successfully created. (id: '{}')",
+                oid.to_string()
+            )
+            .to_string()
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_create_series_already_exists() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+        let series = build_series_mock(oid);
+
+        mock.expect_create_series()
+            .returning(|_| Err(AppError::AlreadyExists));
+
+        let result = mock.create_series(series).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::AlreadyExists);
+    }
+
+    #[actix_web::test]
+    async fn test_create_series_internal_server_error() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+        let series = build_series_mock(oid);
+
+        mock.expect_create_series()
+            .returning(|_| Err(AppError::InternalServerError));
+
+        let result = mock.create_series(series).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+    }
+
+    #[actix_web::test]
+    async fn test_delete_series_ok() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+
+        mock.expect_delete_series().returning(move |str_oid| {
+            let mut map_result: Map<String, Value> = Map::new();
+            map_result.insert(
+                "message".to_string(),
+                Value::String(
+                    format!("Series with id: '{}' was successfully deleted", str_oid).to_string(),
+                ),
+            );
+            Ok(map_result)
+        });
+
+        let result = mock.delete_series(str_oid).await;
+
+        assert!(result.is_ok());
+
+        let map = result.unwrap();
+        assert_eq!(
+            map["message"],
+            format!("Series with id: '{}' was successfully deleted", str_oid).to_string()
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_delete_series_internal_server_error() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+
+        mock.expect_delete_series()
+            .returning(|_| Err(AppError::InternalServerError));
+
+        let result = mock.delete_series(str_oid).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+    }
+
+    #[actix_web::test]
+    async fn test_delete_series_not_exists() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+
+        mock.expect_delete_series()
+            .returning(|_| Err(AppError::NotExists));
+
+        let result = mock.delete_series(str_oid).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::NotExists);
     }
 }
