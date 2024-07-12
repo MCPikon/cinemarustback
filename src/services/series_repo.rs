@@ -464,13 +464,10 @@ impl SeriesRepository for Database {
 
 #[cfg(test)]
 mod tests {
-    use SeriesResponse;
-
-    use {MockSeriesRepository, SeriesRepository};
-
     use super::*;
 
     // Auxiliary Functions
+
     fn build_series_mock(oid: ObjectId) -> Series {
         Series {
             _id: oid,
@@ -486,6 +483,22 @@ mod tests {
             poster: "https://moviedb.com/breaking_bad/poster.jpg".to_string(),
             backdrop: "https://moviedb.com/breaking_bad/backdrop.jpg".to_string(),
             review_ids: vec![ObjectId::new()],
+        }
+    }
+
+    fn build_series_req_mock() -> SeriesRequest {
+        SeriesRequest {
+            imdb_id: "tt12345".to_string(),
+            title: "Breaking Bad".to_string(),
+            overview: "Serie sobre Walter White y su imperio de la meta.".to_string(),
+            number_of_seasons: 5,
+            creator: "Vince Gilligan".to_string(),
+            release_date: "2006-04-02".to_string(),
+            trailer_link: "https://youtube.com/video/dsan21jhk1j".to_string(),
+            genres: vec!["Crimen".to_string(), "Drama".to_string()],
+            season_list: vec![],
+            poster: "https://moviedb.com/breaking_bad/poster.jpg".to_string(),
+            backdrop: "https://moviedb.com/breaking_bad/backdrop.jpg".to_string(),
         }
     }
 
@@ -523,9 +536,9 @@ mod tests {
         assert_eq!(map.get("totalItems").unwrap(), 1);
         assert_eq!(map.get("totalPages").unwrap(), 1);
 
-        let movie_list = map.get("series").unwrap().as_array().unwrap();
-        assert_eq!(movie_list.len(), 1);
-        assert_eq!(movie_list[0].get("title").unwrap(), "Breaking Bad");
+        let series_list = map.get("series").unwrap().as_array().unwrap();
+        assert_eq!(series_list.len(), 1);
+        assert_eq!(series_list[0].get("title").unwrap(), "Breaking Bad");
     }
 
     #[actix_web::test]
@@ -784,5 +797,237 @@ mod tests {
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), AppError::NotExists);
+    }
+
+    #[actix_web::test]
+    async fn test_series_exists_by_imdb_id_true() {
+        let mut mock = MockSeriesRepository::new();
+        let imdb_id_mock = "tt12345";
+
+        mock.expect_series_exists_by_imdb_id()
+            .returning(|_| Ok(true));
+
+        let result = mock.series_exists_by_imdb_id(&imdb_id_mock).await;
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[actix_web::test]
+    async fn test_series_exists_by_imdb_id_false() {
+        let mut mock = MockSeriesRepository::new();
+        let imdb_id_mock = "tt12345";
+
+        mock.expect_series_exists_by_imdb_id()
+            .returning(|_| Ok(false));
+
+        let result = mock.series_exists_by_imdb_id(&imdb_id_mock).await;
+
+        assert!(result.is_ok());
+        assert!(!result.unwrap());
+    }
+
+    #[actix_web::test]
+    async fn test_series_exists_by_imdb_id_internal_server_error() {
+        let mut mock = MockSeriesRepository::new();
+        let imdb_id_mock = "tt12345";
+
+        mock.expect_series_exists_by_imdb_id()
+            .returning(|_| Err(AppError::InternalServerError));
+
+        let result = mock.series_exists_by_imdb_id(&imdb_id_mock).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+    }
+
+    #[actix_web::test]
+    async fn test_update_series_ok() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let series = build_series_req_mock();
+
+        mock.expect_update_series().returning(|str_oid, _| {
+            let mut map_result: Map<String, Value> = Map::new();
+            map_result.insert(
+                "message".to_string(),
+                Value::String(format!(
+                    "Series with id: '{}' was successfully updated",
+                    str_oid
+                )),
+            );
+            Ok(map_result)
+        });
+
+        let result = mock.update_series(str_oid, series).await;
+
+        assert!(result.is_ok());
+
+        let map = result.unwrap();
+        assert_eq!(
+            map["message"],
+            format!("Series with id: '{}' was successfully updated", str_oid).to_string()
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_update_series_not_exists() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let series = build_series_req_mock();
+
+        mock.expect_update_series()
+            .returning(|_, _| Err(AppError::NotExists));
+
+        let result = mock.update_series(str_oid, series).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::NotExists);
+    }
+
+    #[actix_web::test]
+    async fn test_update_series_internal_server_error() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let series = build_series_req_mock();
+
+        mock.expect_update_series()
+            .returning(|_, _| Err(AppError::InternalServerError));
+
+        let result = mock.update_series(str_oid, series).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError);
+    }
+
+    #[actix_web::test]
+    async fn test_update_series_internal_imdb_id_in_use() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let series = build_series_req_mock();
+
+        mock.expect_update_series()
+            .returning(|_, _| Err(AppError::ImdbIdInUse));
+
+        let result = mock.update_series(str_oid, series).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::ImdbIdInUse);
+    }
+
+    #[actix_web::test]
+    async fn test_patch_series_ok() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let field = "title";
+        let val_mock = "Los Soprano";
+
+        mock.expect_patch_series().returning(|str_oid, field, _| {
+            let mut map_result: Map<String, Value> = Map::new();
+            map_result.insert(
+                "message".to_string(),
+                Value::String(format!(
+                    "Series {} with id: '{}' was successfully patched",
+                    field, str_oid
+                )),
+            );
+            Ok(map_result)
+        });
+
+        let result = mock.patch_series(&str_oid, &field, &val_mock).await;
+
+        assert!(result.is_ok());
+
+        let map = result.unwrap();
+        assert_eq!(
+            map["message"],
+            format!(
+                "Series {} with id: '{}' was successfully patched",
+                field, str_oid
+            )
+            .to_string()
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_patch_series_field_not_allowed() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let field = "titleee";
+        let val_mock = "Los Soprano";
+
+        mock.expect_patch_series()
+            .returning(|_, _, _| Err(AppError::FieldNotAllowed));
+
+        let result = mock.patch_series(&str_oid, &field, &val_mock).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::FieldNotAllowed);
+    }
+
+    #[actix_web::test]
+    async fn test_patch_series_wrong_imdb_id() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let field = "imdbId";
+        let val_mock = "tF123asDs1";
+
+        mock.expect_patch_series()
+            .returning(|_, _, _| Err(AppError::WrongImdbId));
+
+        let result = mock.patch_series(&str_oid, &field, &val_mock).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::WrongImdbId);
+    }
+
+    #[actix_web::test]
+    async fn test_patch_series_imdb_id_in_use() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let field = "imdbId";
+        let val_mock = "tt12345";
+
+        mock.expect_patch_series()
+            .returning(|_, _, _| Err(AppError::ImdbIdInUse));
+
+        let result = mock.patch_series(&str_oid, &field, &val_mock).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::ImdbIdInUse);
+    }
+
+    #[actix_web::test]
+    async fn test_patch_series_internal_server_error() {
+        let mut mock = MockSeriesRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let field = "imdbId";
+        let val_mock = "tt12345";
+
+        mock.expect_patch_series()
+            .returning(|_, _, _| Err(AppError::InternalServerError));
+
+        let result = mock.patch_series(&str_oid, &field, &val_mock).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError);
     }
 }

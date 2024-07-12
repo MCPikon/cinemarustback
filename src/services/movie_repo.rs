@@ -457,11 +457,6 @@ impl MovieRepository for Database {
 
 #[cfg(test)]
 mod tests {
-    use mongodb::bson::oid::ObjectId;
-    use serde_json::Value;
-    use AppError;
-    use {MockMovieRepository, Movie, MovieRepository, MovieRequest, MovieResponse};
-
     use super::*;
 
     // Auxiliar Functions
@@ -1022,5 +1017,23 @@ mod tests {
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), AppError::ImdbIdInUse);
+    }
+
+    #[actix_web::test]
+    async fn test_patch_movie_internal_server_error() {
+        let mut mock = MockMovieRepository::new();
+        let oid = ObjectId::new();
+        let parsed_oid = oid.to_string();
+        let str_oid = parsed_oid.as_str();
+        let field = "imdbId";
+        let val_mock = "tt12345";
+
+        mock.expect_patch_movie()
+            .returning(|_, _, _| Err(AppError::InternalServerError));
+
+        let result = mock.patch_movie(&str_oid, &field, &val_mock).await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::InternalServerError);
     }
 }

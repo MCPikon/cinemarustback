@@ -20,6 +20,7 @@ lazy_static! {
     static ref RE_IMDB_ID: regex::Regex = regex::Regex::new(r"^tt\d+$").unwrap();
 }
 
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait ReviewRepository {
     async fn find_all_reviews(
@@ -609,5 +610,64 @@ impl ReviewRepository for Database {
             }),
         );
         Ok(map_result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    // Unit Tests
+
+    #[actix_web::test]
+    async fn test_find_all_reviews_ok() {
+        let mut mock = MockReviewRepository::new();
+
+        mock.expect_find_all_reviews().returning(|_, _| {
+            let mut result_map = serde_json::Map::new();
+            let review = ReviewResponse {
+                _id: ObjectId::new(),
+                title: "La mejor película de la historia".to_string(),
+                rating: 5,
+                body: "Esta película es una obra de arte, es perfecta".to_string(),
+                created_at: DateTime::now(),
+                updated_at: DateTime::now(),
+            };
+            result_map.insert(
+                "reviews".to_string(),
+                serde_json::to_value(vec![review]).unwrap(),
+            );
+            result_map.insert("currentPage".to_string(), serde_json::to_value(1).unwrap());
+            result_map.insert("totalItems".to_string(), serde_json::to_value(1).unwrap());
+            result_map.insert("totalPages".to_string(), serde_json::to_value(1).unwrap());
+            Ok(result_map)
+        });
+
+        let result = mock.find_all_reviews(Some(1), Some(10)).await;
+
+        let map = result.unwrap();
+        assert_eq!(map.get("currentPage").unwrap(), 1);
+        assert_eq!(map.get("totalItems").unwrap(), 1);
+        assert_eq!(map.get("totalPages").unwrap(), 1);
+
+        let series_list = map.get("reviews").unwrap().as_array().unwrap();
+        assert_eq!(series_list.len(), 1);
+        assert_eq!(
+            series_list[0].get("title").unwrap(),
+            "La mejor película de la historia"
+        );
+    }
+
+    #[actix_web::test]
+    async fn test_find_all_reviews_empty_list() {
+        let mut mock = MockReviewRepository::new();
+
+        mock.expect_find_all_reviews()
+            .returning(|_, _| Err(AppError::Empty));
+
+        let result = mock.find_all_reviews(Some(1), Some(10)).await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AppError::Empty);
     }
 }
