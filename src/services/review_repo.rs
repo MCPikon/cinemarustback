@@ -618,6 +618,17 @@ mod tests {
 
     use super::*;
 
+    // Auxiliary Functions
+
+    fn build_review_update_mock() -> ReviewUpdate {
+        ReviewUpdate {
+            title: "El padrino es una obra de arte.".to_string(),
+            rating: 4,
+            body: "En esta nueva entrega del padrino vemos a un Michael Corleone mucho más maduro."
+                .to_string(),
+        }
+    }
+
     // Unit Tests
 
     #[actix_web::test]
@@ -645,16 +656,17 @@ mod tests {
         });
 
         let result = mock.find_all_reviews(Some(1), Some(10)).await;
+        assert!(result.is_ok());
 
         let map = result.unwrap();
         assert_eq!(map.get("currentPage").unwrap(), 1);
         assert_eq!(map.get("totalItems").unwrap(), 1);
         assert_eq!(map.get("totalPages").unwrap(), 1);
 
-        let series_list = map.get("reviews").unwrap().as_array().unwrap();
-        assert_eq!(series_list.len(), 1);
+        let review_list = map.get("reviews").unwrap().as_array().unwrap();
+        assert_eq!(review_list.len(), 1);
         assert_eq!(
-            series_list[0].get("title").unwrap(),
+            review_list[0].get("title").unwrap(),
             "La mejor película de la historia"
         );
     }
@@ -667,7 +679,520 @@ mod tests {
             .returning(|_, _| Err(AppError::Empty));
 
         let result = mock.find_all_reviews(Some(1), Some(10)).await;
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), AppError::Empty);
+        assert!(result.is_err_and(|err| err == AppError::Empty));
+    }
+
+    #[actix_web::test]
+    async fn test_find_all_reviews_internal_server_error() {
+        let mut mock = MockReviewRepository::new();
+
+        mock.expect_find_all_reviews()
+            .returning(|_, _| Err(AppError::InternalServerError));
+
+        let result = mock.find_all_reviews(Some(1), Some(10)).await;
+        assert!(result.is_err_and(|err| err == AppError::InternalServerError));
+    }
+
+    #[actix_web::test]
+    async fn test_find_all_reviews_by_imdb_id_ok() {
+        let mut mock = MockReviewRepository::new();
+
+        mock.expect_find_all_reviews_by_imdb_id().returning(|_| {
+            let review = ReviewResponse {
+                _id: ObjectId::new(),
+                title: "La mejor película de la historia".to_string(),
+                rating: 5,
+                body: "Esta película es una obra de arte, es perfecta".to_string(),
+                created_at: DateTime::now(),
+                updated_at: DateTime::now(),
+            };
+            Ok(vec![review])
+        });
+
+        let result = mock.find_all_reviews_by_imdb_id("tt1234").await;
+        assert!(result.is_ok());
+
+        let review_list = result.unwrap();
+        assert_eq!(review_list.len(), 1);
+        assert_eq!(review_list[0].title, "La mejor película de la historia");
+    }
+
+    #[actix_web::test]
+    async fn test_find_all_reviews_by_imdb_id_wrong_imdb_id() {
+        let mut mock = MockReviewRepository::new();
+
+        mock.expect_find_all_reviews_by_imdb_id()
+            .returning(|_| Err(AppError::WrongImdbId));
+
+        let result = mock.find_all_reviews_by_imdb_id("tt1234").await;
+
+        assert!(result.is_err_and(|err| err == AppError::WrongImdbId));
+    }
+
+    #[actix_web::test]
+    async fn test_find_all_reviews_by_imdb_id_internal_server_error() {
+        let mut mock = MockReviewRepository::new();
+
+        mock.expect_find_all_reviews_by_imdb_id()
+            .returning(|_| Err(AppError::InternalServerError));
+
+        let result = mock.find_all_reviews_by_imdb_id("tt1234").await;
+
+        assert!(result.is_err_and(|err| err == AppError::InternalServerError));
+    }
+
+    #[actix_web::test]
+    async fn test_find_all_reviews_by_imdb_id_not_exists() {
+        let mut mock = MockReviewRepository::new();
+
+        mock.expect_find_all_reviews_by_imdb_id()
+            .returning(|_| Err(AppError::NotExists));
+
+        let result = mock.find_all_reviews_by_imdb_id("tt1234").await;
+
+        assert!(result.is_err_and(|err| err == AppError::NotExists));
+    }
+
+    #[actix_web::test]
+    async fn test_find_all_reviews_by_imdb_id_empty() {
+        let mut mock = MockReviewRepository::new();
+
+        mock.expect_find_all_reviews_by_imdb_id()
+            .returning(|_| Err(AppError::Empty));
+
+        let result = mock.find_all_reviews_by_imdb_id("tt1234").await;
+
+        assert!(result.is_err_and(|err| err == AppError::Empty));
+    }
+
+    #[actix_web::test]
+    async fn test_find_review_by_id_ok() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+
+        mock.expect_find_review_by_id().returning(move |_| {
+            let review = ReviewResponse {
+                _id: oid,
+                title: "La mejor película de la historia".to_string(),
+                rating: 5,
+                body: "Esta película es una obra de arte, es perfecta".to_string(),
+                created_at: DateTime::now(),
+                updated_at: DateTime::now(),
+            };
+            Ok(review)
+        });
+
+        let result = mock.find_review_by_id(oid.to_string().as_str()).await;
+        assert!(result.is_ok_and(|res| {
+            res.title == "La mejor película de la historia" && res.rating == 5
+        }));
+    }
+
+    #[actix_web::test]
+    async fn test_find_review_by_id_cannot_parse_object_id() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+
+        mock.expect_find_review_by_id()
+            .returning(|_| Err(AppError::CannotParseObjId));
+
+        let result = mock.find_review_by_id(oid.to_string().as_str()).await;
+
+        assert!(result.is_err_and(|err| err == AppError::CannotParseObjId));
+    }
+
+    #[actix_web::test]
+    async fn test_find_review_by_id_cannot_not_found() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+
+        mock.expect_find_review_by_id()
+            .returning(|_| Err(AppError::NotFound));
+
+        let result = mock.find_review_by_id(oid.to_string().as_str()).await;
+
+        assert!(result.is_err_and(|err| err == AppError::NotFound));
+    }
+
+    #[actix_web::test]
+    async fn test_find_review_by_id_cannot_internal_server_error() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+
+        mock.expect_find_review_by_id()
+            .returning(|_| Err(AppError::InternalServerError));
+
+        let result = mock.find_review_by_id(oid.to_string().as_str()).await;
+
+        assert!(result.is_err_and(|err| err == AppError::InternalServerError));
+    }
+
+    #[actix_web::test]
+    async fn test_create_review_ok() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+        let review = Review {
+            _id: oid,
+            title: "La mejor película de la historia".to_string(),
+            rating: 5,
+            body: "Esta película es una obra de arte, es perfecta".to_string(),
+            created_at: DateTime::now(),
+            updated_at: DateTime::now(),
+        };
+
+        mock.expect_create_review().returning(|review, _| {
+            let mut map_result: Map<String, Value> = Map::new();
+            map_result.insert(
+                "message".to_string(),
+                Value::String(format!(
+                    "Review was successfully created. (id: '{}')",
+                    review._id
+                )),
+            );
+            Ok(map_result)
+        });
+
+        let result = mock.create_review(review, "tt12345").await;
+
+        assert!(result.is_ok_and(
+            |map| map["message"] == format!("Review was successfully created. (id: '{}')", oid)
+        ));
+    }
+
+    #[actix_web::test]
+    async fn test_create_review_not_exists() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+        let review = Review {
+            _id: oid,
+            title: "La mejor película de la historia".to_string(),
+            rating: 5,
+            body: "Esta película es una obra de arte, es perfecta".to_string(),
+            created_at: DateTime::now(),
+            updated_at: DateTime::now(),
+        };
+
+        mock.expect_create_review()
+            .returning(|_, _| Err(AppError::NotExists));
+
+        let result = mock.create_review(review, "tt12345").await;
+
+        assert!(result.is_err_and(|err| err == AppError::NotExists));
+    }
+
+    #[actix_web::test]
+    async fn test_create_review_internal_server_error() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+        let review = Review {
+            _id: oid,
+            title: "La mejor película de la historia".to_string(),
+            rating: 5,
+            body: "Esta película es una obra de arte, es perfecta".to_string(),
+            created_at: DateTime::now(),
+            updated_at: DateTime::now(),
+        };
+
+        mock.expect_create_review()
+            .returning(|_, _| Err(AppError::InternalServerError));
+
+        let result = mock.create_review(review, "tt12345").await;
+
+        assert!(result.is_err_and(|err| err == AppError::InternalServerError));
+    }
+
+    #[actix_web::test]
+    async fn test_movie_exists_by_imdb_id_true() {
+        let mut mock = MockReviewRepository::new();
+        let movie_oid = ObjectId::new();
+
+        mock.expect_movie_exists_by_review_id()
+            .returning(move |_| Ok((true, Some(movie_oid))));
+
+        let result = mock.movie_exists_by_review_id(ObjectId::new()).await;
+        assert!(result.is_ok_and(|tup| { tup.0 && tup.1.unwrap() == movie_oid }));
+    }
+
+    #[actix_web::test]
+    async fn test_movie_exists_by_imdb_id_false() {
+        let mut mock = MockReviewRepository::new();
+
+        mock.expect_movie_exists_by_review_id()
+            .returning(|_| Ok((false, None)));
+
+        let result = mock.movie_exists_by_review_id(ObjectId::new()).await;
+        assert!(result.is_ok_and(|tup| { !tup.0 && tup.1 == None }));
+    }
+
+    #[actix_web::test]
+    async fn test_movie_exists_by_imdb_id_internal_server_error() {
+        let mut mock = MockReviewRepository::new();
+
+        mock.expect_movie_exists_by_review_id()
+            .returning(|_| Err(AppError::InternalServerError));
+
+        let result = mock.movie_exists_by_review_id(ObjectId::new()).await;
+
+        assert!(result.is_err_and(|err| err == AppError::InternalServerError));
+    }
+
+    #[actix_web::test]
+    async fn test_series_exists_by_imdb_id_true() {
+        let mut mock = MockReviewRepository::new();
+        let series_oid = ObjectId::new();
+
+        mock.expect_series_exists_by_review_id()
+            .returning(move |_| Ok((true, Some(series_oid))));
+
+        let result = mock.series_exists_by_review_id(ObjectId::new()).await;
+        assert!(result.is_ok_and(|tup| { tup.0 && tup.1.unwrap() == series_oid }));
+    }
+
+    #[actix_web::test]
+    async fn test_series_exists_by_imdb_id_false() {
+        let mut mock = MockReviewRepository::new();
+
+        mock.expect_series_exists_by_review_id()
+            .returning(|_| Ok((false, None)));
+
+        let result = mock.series_exists_by_review_id(ObjectId::new()).await;
+        assert!(result.is_ok_and(|tup| { !tup.0 && tup.1 == None }));
+    }
+
+    #[actix_web::test]
+    async fn test_series_exists_by_imdb_id_internal_server_error() {
+        let mut mock = MockReviewRepository::new();
+
+        mock.expect_series_exists_by_review_id()
+            .returning(|_| Err(AppError::InternalServerError));
+
+        let result = mock.series_exists_by_review_id(ObjectId::new()).await;
+
+        assert!(result.is_err_and(|err| err == AppError::InternalServerError));
+    }
+
+    #[actix_web::test]
+    async fn test_delete_review_ok() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+        let del_msg = format!("Review with id: '{}' was successfully deleted", oid);
+
+        mock.expect_delete_review().returning({
+            let msg = del_msg.clone();
+            move |_| {
+                let mut map_result: Map<String, Value> = Map::new();
+                map_result.insert("message".to_string(), Value::String(msg.clone()));
+                Ok(map_result)
+            }
+        });
+
+        let result = mock.delete_review(oid.to_string().as_str()).await;
+
+        assert!(result.is_ok_and(|map| map["message"] == del_msg));
+    }
+
+    #[actix_web::test]
+    async fn test_delete_review_cannot_parse_object_id() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+
+        mock.expect_delete_review()
+            .returning(|_| Err(AppError::CannotParseObjId));
+
+        let result = mock.delete_review(oid.to_string().as_str()).await;
+
+        assert!(result.is_err_and(|err| err == AppError::CannotParseObjId));
+    }
+
+    #[actix_web::test]
+    async fn test_delete_review_not_exists() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+
+        mock.expect_delete_review()
+            .returning(|_| Err(AppError::NotExists));
+
+        let result = mock.delete_review(oid.to_string().as_str()).await;
+
+        assert!(result.is_err_and(|err| err == AppError::NotExists));
+    }
+
+    #[actix_web::test]
+    async fn test_delete_review_internal_server_error() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+
+        mock.expect_delete_review()
+            .returning(|_| Err(AppError::InternalServerError));
+
+        let result = mock.delete_review(oid.to_string().as_str()).await;
+
+        assert!(result.is_err_and(|err| err == AppError::InternalServerError));
+    }
+
+    #[actix_web::test]
+    async fn test_update_review_ok() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+        let review_up = build_review_update_mock();
+        let upd_msg = format!("Review with id: '{}' was successfully updated", oid);
+
+        mock.expect_update_review().returning({
+            let msg = upd_msg.clone();
+            move |_, _| {
+                let mut map_result: Map<String, Value> = Map::new();
+                map_result.insert("message".to_string(), Value::String(msg.clone()));
+                Ok(map_result)
+            }
+        });
+
+        let result = mock
+            .update_review(oid.to_string().as_str(), review_up)
+            .await;
+
+        assert!(result.is_ok_and(|map| map["message"] == upd_msg));
+    }
+
+    #[actix_web::test]
+    async fn test_update_review_cannot_parse_object_id() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+        let review_up = build_review_update_mock();
+
+        mock.expect_update_review()
+            .returning(|_, _| Err(AppError::CannotParseObjId));
+
+        let result = mock
+            .update_review(oid.to_string().as_str(), review_up)
+            .await;
+
+        assert!(result.is_err_and(|err| err == AppError::CannotParseObjId));
+    }
+
+    #[actix_web::test]
+    async fn test_update_review_not_exists() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+        let review_up = build_review_update_mock();
+
+        mock.expect_update_review()
+            .returning(|_, _| Err(AppError::NotExists));
+
+        let result = mock
+            .update_review(oid.to_string().as_str(), review_up)
+            .await;
+
+        assert!(result.is_err_and(|err| err == AppError::NotExists));
+    }
+
+    #[actix_web::test]
+    async fn test_update_review_internal_server_error() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+        let review_up = build_review_update_mock();
+
+        mock.expect_update_review()
+            .returning(|_, _| Err(AppError::InternalServerError));
+
+        let result = mock
+            .update_review(oid.to_string().as_str(), review_up)
+            .await;
+
+        assert!(result.is_err_and(|err| err == AppError::InternalServerError));
+    }
+
+    #[actix_web::test]
+    async fn test_patch_review_ok() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+        let field = "title";
+        let val = "Jedis vs Sith, la nueva serie de Star Wars lo peta";
+        let pt_msg = format!(
+            "Review {} with id: '{}' was successfully patched",
+            field, oid
+        );
+
+        mock.expect_patch_review().returning({
+            let msg = pt_msg.clone();
+            move |_, _, _| {
+                let mut map_result: Map<String, Value> = Map::new();
+                map_result.insert("message".to_string(), Value::String(msg.clone()));
+                Ok(map_result)
+            }
+        });
+
+        let result = mock
+            .patch_review(oid.to_string().as_str(), field, val)
+            .await;
+
+        assert!(result.is_ok_and(|map| map["message"] == pt_msg));
+    }
+
+    #[actix_web::test]
+    async fn test_patch_review_cannot_parse_object_id() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+        let field = "title";
+        let val = "Jedis vs Sith, la nueva serie de Star Wars lo peta";
+
+        mock.expect_patch_review()
+            .returning(|_, _, _| Err(AppError::CannotParseObjId));
+
+        let result = mock
+            .patch_review(oid.to_string().as_str(), field, val)
+            .await;
+
+        assert!(result.is_err_and(|err| err == AppError::CannotParseObjId));
+    }
+
+    #[actix_web::test]
+    async fn test_patch_review_field_not_allowed() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+        let field = "title";
+        let val = "Jedis vs Sith, la nueva serie de Star Wars lo peta";
+
+        mock.expect_patch_review()
+            .returning(|_, _, _| Err(AppError::FieldNotAllowed));
+
+        let result = mock
+            .patch_review(oid.to_string().as_str(), field, val)
+            .await;
+
+        assert!(result.is_err_and(|err| err == AppError::FieldNotAllowed));
+    }
+
+    #[actix_web::test]
+    async fn test_patch_review_not_exists() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+        let field = "title";
+        let val = "Jedis vs Sith, la nueva serie de Star Wars lo peta";
+
+        mock.expect_patch_review()
+            .returning(|_, _, _| Err(AppError::NotExists));
+
+        let result = mock
+            .patch_review(oid.to_string().as_str(), field, val)
+            .await;
+
+        assert!(result.is_err_and(|err| err == AppError::NotExists));
+    }
+
+    #[actix_web::test]
+    async fn test_patch_review_internal_server_error() {
+        let mut mock = MockReviewRepository::new();
+        let oid = ObjectId::new();
+        let field = "title";
+        let val = "Jedis vs Sith, la nueva serie de Star Wars lo peta";
+
+        mock.expect_patch_review()
+            .returning(|_, _, _| Err(AppError::InternalServerError));
+
+        let result = mock
+            .patch_review(oid.to_string().as_str(), field, val)
+            .await;
+
+        assert!(result.is_err_and(|err| err == AppError::InternalServerError));
     }
 }
